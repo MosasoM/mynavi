@@ -247,19 +247,18 @@ class access_extractor:
         tmp = x["アクセス"].values
         train = ["" for i in range(len(tmp))]
         oth_train = [["" for i in range(len(tmp))] for j in range(2)]
-        walk = [0 for i in range(len(tmp))]
+#         walk = [0 for i in range(len(tmp))]
         avgwalk = [0 for i in range(len(tmp))]
-        oth_walk = [[100 for i in range(len(tmp))] for j in range(2)]
+        oth_walk = [[100 for i in range(len(tmp))] for j in range(3)]
         for i in range(len(tmp)):
-            train[i] = re.search(r".+?(線|ライン|ライナー|プレス|かもめ)",tmp[i])[0]
-            walk[i] = int(re.search(r"徒歩[0-9]+?分",tmp[i])[0][2:-1])
+            train[i] = re.match(r".+?(線|ライン|ライナー|プレス|かもめ)",tmp[i])[0]
             avg = 0
             ind = 0
             for m in re.finditer(r"徒歩[0-9]+分",tmp[i]):
                 avg += int(m[0][2:-1])
                 oth_walk[ind][i] = int(m[0][2:-1])
                 ind += 1
-                if ind > 1:
+                if ind > 2:
                     break
             if ind == 0:
                 ind = 1
@@ -275,22 +274,22 @@ class access_extractor:
         hoge = hoge.assign(train=train)
         hoge = hoge.assign(train2=oth_train[0])
         hoge = hoge.assign(train3=oth_train[1])
-        hoge = hoge.assign(walk= walk)
-        hoge = hoge.assign(walk2 = oth_walk[0])
-        hoge = hoge.assign(walk3 = oth_walk[1])
+        hoge = hoge.assign(walk= oth_walk[0])
+        hoge = hoge.assign(walk2 = oth_walk[1])
+        hoge = hoge.assign(walk3 = oth_walk[2])
         hoge = hoge.assign(avgwalk = avgwalk)
         return hoge
 
 class train_encoder:
     def __init__(self):
         self.train_dic = None
-        self.encoder = OneHotEncoder(handle_unknown="ignore",sparse=False)
-        self.enc2 = OneHotEncoder(handle_unknown="ignore",sparse=False)
-        self.enc3 = OneHotEncoder(handle_unknown="ignore",sparse=False)
+#         self.encoder = OneHotEncoder(handle_unknown="ignore",sparse=False)
+#         self.enc2 = OneHotEncoder(handle_unknown="ignore",sparse=False)
+#         self.enc3 = OneHotEncoder(handle_unknown="ignore",sparse=False)
     def fit(self,x,y):
-        self.encoder.fit(x["train"].values.reshape(-1,1))
-        self.enc2.fit(x["train2"].values.reshape(-1,1))
-        self.enc3.fit(x["train3"].values.reshape(-1,1))
+#         self.encoder.fit(x["train"].values.reshape(-1,1))
+#         self.enc2.fit(x["train2"].values.reshape(-1,1))
+#         self.enc3.fit(x["train3"].values.reshape(-1,1))
         train_kind = set()
         for key in x["train"].unique():
             train_kind.add(key)
@@ -307,6 +306,7 @@ class train_encoder:
         return self
     def transform(self,x):
         temp = [[100 for i in range(len(self.train_dic))] for j in range(len(x.values))]
+        moyori = [0 for i in range(len(x.values))]
         fuga = x["train"].values
         piyo = x["walk"].values
         train_dic = self.train_dic
@@ -314,6 +314,11 @@ class train_encoder:
             key = fuga[i]
             if key in self.train_dic:
                 temp[i][train_dic[key]] = piyo[i]
+                
+#         for i in range(len(x["train"].values)):
+#             key = fuga[i]
+#             if key in self.train_dic:
+#                 moyori[i] = self.train_dic[key]+1　むしろ悪化した
                 
         fuga = x["train2"].values
         piyo = x["walk2"].values
@@ -340,6 +345,7 @@ class train_encoder:
 #         hoge = hoge.drop("train3",axis = 1)
         temp.index = hoge.index
         hoge = pd.concat([hoge,temp],axis = 1)
+#         hoge = hoge.assign(moyori=moyori)//むしろ悪化した
 #         return hoge
         
         
@@ -392,6 +398,8 @@ class parking_encoder:
     def transform(self,x):
         temp = x["駐車場"].values
         d = [[0 for i in range(3)] for j in range(len(temp))]
+        parking_cost = [0 for i in range(len(temp))]
+        parking_dist = [0 for i in range(len(temp))]
         for i in range(len(temp)):
             if temp[i] != temp[i]:
                 continue
@@ -406,7 +414,41 @@ class parking_encoder:
         setubi.columns = col
         hoge = x.drop("駐車場",axis = 1)
         setubi.index = hoge.index
-        return pd.concat([hoge,setubi],axis = 1)
+        hoge =  pd.concat([hoge,setubi],axis = 1)
+        
+        pat = re.compile(r"駐車場.+近隣.+円.+?m")
+        pat2 = re.compile(r"駐車場\t+?近隣")
+        p2 = re.compile(r"[0-9\,]+?円")
+        p3 = re.compile(r"\,")
+        p4 = re.compile(r"距離[0-9]+?m")
+        kinrin = [0 for i in range(len(temp))]
+        for i in range(len(temp)):
+            if temp[i]!=temp[i] or d[i][1] == 1:
+                continue
+#             cost = 0
+#             dist = 0
+            m = pat.search(temp[i])
+            if m:
+                kinrin[i] = 1
+#                 txt = m[0]
+#                 cost = p2.search(txt)[0]
+#                 cost = p3.sub("",cost)
+#                 cost = int(cost[:-1])
+#                 dist = p4.search(txt)[0]
+#                 dist = int(dist[2:-1])
+            else:
+                m = pat2.search(temp[i])
+                if m:
+                    kinrin[i] = 1
+#                     cost = 20000
+#                     dist = 200
+#             parking_cost[i] = cost
+#             parking_dist[i] = dist
+#         hoge = hoge.assign(p_cost=parking_cost)
+#         hoge = hoge.assign(p_dist=parking_dist)//効果ないっぽ
+        hoge = hoge.assign(kinrin=kinrin)
+        
+        return hoge
 
 
 
