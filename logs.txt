@@ -1,0 +1,79 @@
+---cross val scoers---
+26762.896445866456 25321.805721798046 22043.488587293054 
+----rich socre,poor score---
+59057.01610175769 10359.072375715525
+---comment---
+check_specksのテスト。richな方にのみlogをとってみた。
+9_29_18_43
+---cross val scoers---
+26858.672167067078 25205.55250321404 22113.50541914114 
+----rich socre,poor score---
+58758.13522693092 10366.351001384674
+---comment---
+check_specksのテスト。richな方にのみlogをとってみた
+           さらにもうちょっといじってfeature_importanceも吐くようにした
+9_29_18_51
+---cross val scoers---
+26839.1753261914 25339.991544263867 22380.092619394538 
+----rich socre,poor score---
+58596.730759914884 10371.596447218677
+---comment---
+check_specksのテスト。richな方にのみlogをとってみた
+           さらにもうちょっといじってfeature_importanceも吐くようにした
+9_29_19_1
+---cross val scoers---
+26441.90731751509 24824.561887394124 22046.209794192695 
+----rich socre,poor score---
+58592.61340429406 10367.223481290757
+---comment---
+check_specksのテスト。richな方にのみlogをとってみた
+           さらにもうちょっといじってfeature_importanceも吐くようにした
+
+9_29_19_31
+---cross val scoers---
+26748.993100516418 24850.491541240688 21932.21816820016 
+----rich socre,poor score---
+58711.80793269533 10308.988463075199
+---comment---
+check_specksのテスト。richな方にのみlogをとってみた
+           さらにもうちょっといじってfeature_importanceも吐くようにした
+
+9_29_20_6
+---cross val scoers---
+26740.810098110946 26113.49204737643 21957.83247353284 
+----rich socre,poor score---
+59048.21812650078 10459.345863979052
+---comment---
+check_specksのテスト。richな方にのみlogをとってみた
+           さらにもうちょっといじってfeature_importanceも吐くようにした
+
+9_29_20_17
+---cross val scoers---
+30033.211370054363 28855.04108912466 24429.26897042331 
+----rich socre,poor score---
+63691.859428890944 11516.2546383371
+---comment---
+city,distをLabelCountEncodingにして特徴の次元を削減。
+distは正直OneHotのままでもいい気もするのでこの結果で判断
+
+9_29_20_16
+
+9_29_21_37
+
+9_29_21_38
+---cross val scoers---
+26833.68047398233 26812.13102488655 22634.97007203635 
+----rich socre,poor score---
+62600.513370702785 10644.325693594328
+---comment---
+city,distをlabelEncodingに変換
+cityはOneHotの方が微妙に性能良い気はする。
+
+
+9_29_22_50
+---cross val scoers---
+27244.61890116169 26616.372474008516 22867.297071138757 
+----rich socre,poor score---
+61173.942377074636 10577.72104058371
+---comment---
+trainのOneHotを落としてみた

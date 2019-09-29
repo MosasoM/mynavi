@@ -2,6 +2,9 @@ import numpy as np
 import xgboost as xgb
 from basic_feature import *
 from sklearn.pipeline import Pipeline
+import lightgbm as lgbm
+from sklearn.metrics import mean_squared_error
+import datetime
 
 class classfy_pre:
     def __init__(self):
@@ -14,6 +17,7 @@ class classfy_pre:
             ("ex_dist",extract_district()),
             ("label_dist",district_encoder()),
             ("acc_ext",access_extractor()),
+            ("tr_enc",train_encoder()),
             ("parking_encoder",parking_encoder()),
             ("drop_unnecessary",drop_unnecessary())
         ]
@@ -29,6 +33,7 @@ class poor_pre:
             ("ex_dist",extract_district()),
             ("label_dist",district_encoder()),
             ("acc_ext",access_extractor()),
+            ("tr_enc",train_encoder()),
             ("parking_encoder",parking_encoder()),
             ("drop_unnecessary",drop_unnecessary())
         ]
@@ -44,6 +49,7 @@ class rich_pre:
             ("ex_dist",extract_district()),
             ("label_dist",district_encoder()),
             ("acc_ext",access_extractor()),
+            ("tr_enc",train_encoder()),
             ("parking_encoder",parking_encoder()),
             ("drop_unnecessary",drop_unnecessary())
         ]
@@ -66,7 +72,7 @@ def classify_ensemble(models,x_valid):
     return predict
 
 class bin_model_score:
-    def __init__(self,is_log=False,threshold=200000):
+    def __init__(self,is_log=True,threshold=200000):
         hoge = classfy_pre()
         pre_step = hoge.steps
         m1 = [
@@ -79,40 +85,55 @@ class bin_model_score:
         ]
         m3 = [
             ("pre", Pipeline(steps = pre_step)),
-            ("lgi",LogisticRegression())
+            ("lgi",LogisticRegression(random_state=7777))
         ]
+        m4 = [
+            ("pre", Pipeline(steps = pre_step)),
+            ("lgbm",lgbm.LGBMRegressor(random_state=7777))
+        ]
+        
         pp = poor_pre()
         ppstep =pp.steps
         poor_step_xgb = [
             ("pre",Pipeline(steps=ppstep)),
-            ("xgb",xgb.XGBRegressor())
+            ("xgb",xgb.XGBRegressor(random_state=7777))
 #           ("xgb",xgb.XGBRegressor(n_estimators=140,min_child_weight=5,max_depth=9,learning_rate=0.2,random_state=7777))
         ]
         poor_step_rfr = [
             ("pre",Pipeline(steps=ppstep)),
-            ("rfr",RandomForestRegressor())
-#           ("xgb",xgb.XGBRegressor(n_estimators=140,min_child_weight=5,max_depth=9,learning_rate=0.2,random_state=7777))
+            ("rfr",RandomForestRegressor(random_state=7777))
         ]
+        poor_step_lgbm = [
+            ("pre",Pipeline(steps=ppstep)),
+            ("lgbm",lgbm.LGBMRegressor(random_state=7777))
+        ]
+        
+        
         rp = rich_pre()
         rpstep = rp.steps
         rich_step_xgb = [
             ("pre",Pipeline(steps=rpstep)),
-            ("xgb",xgb.XGBRegressor())
+            ("xgb",xgb.XGBRegressor(random_state=7777))
 #            ("xgb",xgb.XGBRegressor(n_estimators=140,min_child_weight=5,max_depth=7,learning_rate=0.1,random_state=7777)) 
         ]
         rich_step_rfr = [
             ("pre",Pipeline(steps=rpstep)),
-            ("rfr",RandomForestRegressor())
-#           ("xgb",xgb.XGBRegressor(n_estimators=140,min_child_weight=5,max_depth=9,learning_rate=0.2,random_state=7777))
+            ("rfr",RandomForestRegressor(random_state=7777))
+        ]
+        rich_step_lgbm = [
+            ("pre",Pipeline(steps=rpstep)),
+            ("lgbm",lgbm.LGBMRegressor(random_state=7777))
         ]
         
         self.p_models = [
             Pipeline(steps=poor_step_xgb),
-            Pipeline(steps=poor_step_rfr)
+            Pipeline(steps=poor_step_rfr),
+            Pipeline(steps=poor_step_lgbm),
         ]
         self.r_models = [
             Pipeline(steps=rich_step_xgb),
-            Pipeline(steps=rich_step_rfr)
+            Pipeline(steps=rich_step_rfr),
+            Pipeline(steps=rich_step_lgbm),
         ]    
         self.c_models = [
             Pipeline(steps=m1),
@@ -138,7 +159,6 @@ class bin_model_score:
         temp_y_poor = train_poor["賃料"]
         temp_x_poor = train_poor.drop(["賃料"],axis = 1)
         if self.is_log:
-            temp_y_poor = np.log(temp_y_poor.values)
             temp_y_rich = np.log(temp_y_rich.values)
         for model in self.p_models:
             model.fit(temp_x_poor,temp_y_poor)
@@ -147,12 +167,6 @@ class bin_model_score:
         return self
     def predict(self,x):
         sep = classify_ensemble(self.c_models,x)
-#         rich_predict = self.rich_model.predict(x)
-#         poor_predict = self.poor_model.predict(x)
-#         tot_predict = [0 for i in range(len(x.values))]
-#         for i in range(len(x.values)):
-#             tot_predict[i] = sep[i]*rich_predict[i]+(1-sep[i])*poor_predict[i]
-#         return tot_predict
         
         tar = x.assign(isrich=sep)
         rich_group = tar.query("isrich == 1")
@@ -176,7 +190,6 @@ class bin_model_score:
         
         if self.is_log:
             rich_predict = np.exp(rich_predict)
-            poor_predict = np.exp(poor_predict)
         
         rich_predict = pd.DataFrame(rich_predict)
         poor_predict = pd.DataFrame(poor_predict)
@@ -193,6 +206,44 @@ class bin_model_score:
         for num in x["id"]:
             buf.append(ans.query("id==@num")["Price"].values)
         return buf
+    def each_predict_score(self,train_x,train_y):
+#         temp_x = train_x.drop("賃料",axis = 1)
+#         temp_y = train_x["賃料"]
+        x_train,x_valid,y_train,y_valid = train_test_split(train_x,train_y,random_state=7777)
+        self.fit(x_train,y_train)
+        th = self.threshold
+        hoge = pd.concat([x_valid,y_valid],axis = 1)
+        rich_group = hoge.query("賃料 > @th")
+        poor_group = hoge.query("賃料 <= @th")
+        rich_y = rich_group["賃料"].values
+        poor_y = poor_group["賃料"].values
+        rich_group = rich_group.drop("賃料",axis=1)
+        poor_group = poor_group.drop("賃料",axis=1)
+        
+        temp = np.zeros(len(rich_group.values))
+        for model in self.r_models:
+            pred = model.predict(rich_group)
+            temp += np.array(pred)
+        temp = temp/len(self.r_models)
+        rich_predict = temp
+        rich_predict = np.exp(rich_predict)
+        
+        temp = np.zeros(len(poor_group.values))
+        for model in self.p_models:
+            pred = model.predict(poor_group)
+            temp += np.array(pred)
+        temp = temp/len(self.p_models)
+        poor_predict = temp
+        
+        score1 = mean_squared_error(rich_predict,rich_y)
+        score2 = mean_squared_error(poor_predict,poor_y)
+        score1 = np.sqrt(score1)
+        score2 = np.sqrt(score2)
+        
+        return score1,score2
+        
+        
+        
     def get_params(self,deep=True):
         return {
         "threshold":self.threshold,
@@ -225,3 +276,40 @@ def pre_checker(x,y):
     m2.fit(x,y)
     m3.fit(x,y)
     return m1,m2,m3
+
+def check_specs(comment,train_x,train_y,border=200000):
+    now = datetime.datetime.now()
+    name = str(now.month)+"_"+str(now.day)+"_"+str(now.hour)+"_"+str(now.minute)
+    f = open("logs.txt","a")
+    f.write("\n")
+    f.write(name + "\n")
+    scores = cross_val_score(bin_model_score(threshold=border),train_x,train_y,scoring="neg_mean_squared_error")
+    scores = np.sqrt(-np.array(scores))
+    print(scores)
+    f.write("---cross val scoers---\n")
+    for i in range(3):
+        f.write(str(scores[i])+" ")
+    f.write("\n")
+    bms = bin_model_score(threshold=border)
+    rich_score,poor_score = bms.each_predict_score(train_x,train_y)
+    print(rich_score)
+    print(poor_score)
+    f.write("----rich socre,poor score---\n")
+    f.write(str(rich_score)+" "+str(poor_score)+"\n")
+    f.write("---comment---\n")
+    f.write(comment)
+    f.write("\n")
+    f.close()
+    f = open("./feature_importances/"+name+"_f.txt","w")
+    rm = bms.r_models[0]
+    pm = bms.p_models[0]
+    d1 = rm[-1].get_booster().get_score(importance_type='gain')
+    d2 = pm[-1].get_booster().get_score(importance_type='gain')
+    for key in d1:
+        f.write(key+" "+str(d1[key])+"\n")
+    f.write("\n")
+    f.write("*************************\n")
+    for key in d2:
+        f.write(key+" "+str(d2[key])+"\n")
+        
+    
