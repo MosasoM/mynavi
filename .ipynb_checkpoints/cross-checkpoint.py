@@ -37,3 +37,64 @@ def relative_height_(x):
     per = a/b
     diff = a-b
     return per,diff
+
+
+def fit_price_stats_(x,y,category_col):
+    ty = pd.DataFrame(y)
+    ty.columns=["賃料"]
+    ty.index = x.index
+    temptemp = pd.concat([x,ty],axis = 1)
+    label = temptemp.groupby(category_col).mean().index.values
+    
+    means = {}
+    mean_pad = 120000
+    stds = {}
+    std_pad = 50000
+    medians = {}
+    medi_pad = 90000
+        
+    temp = np.round(temptemp.groupby(category_col).mean()["賃料"].values)
+    for i in range(len(label)):
+        means[label[i]] = temp[i]
+    mean_pad = round(np.mean(temp))
+        
+    temp = np.round(temptemp.groupby(category_col).std()["賃料"].values)
+    for i in range(len(label)):
+        stds[label[i]] = temp[i]
+    std_pad = round(np.std(temp))
+        
+    temp = np.round(temptemp.groupby(category_col).median()["賃料"].values)
+    for i in range(len(label)):
+        medians[label[i]] = temp[i]
+    medi_pad = round(np.median(temp))
+    
+    return means,mean_pad,stds,std_pad,medians,medi_pad
+
+
+
+def transform_price_stats_(x,category_col,means,mean_pad,stds,std_pad,medians,medi_pad):
+    buf1 = [0 for i in range(len(x.values))]
+    temp = x[category_col].values
+    for i in range(len(x.values)):
+        if temp[i] in means:
+            buf1[i] = means[temp[i]]
+        else:
+            buf1[i] = mean_pad
+        
+    buf2 = [0 for i in range(len(x.values))]
+    for i in range(len(x.values)):
+        if temp[i] in stds:
+            buf2[i] = stds[temp[i]]
+        else:
+            buf2[i] = std_pad
+        
+        
+    buf3 = [0 for i in range(len(x.values))]
+    for i in range(len(x.values)):
+        if temp[i] in medians:
+            buf3[i] = medians[temp[i]]
+        else:
+            buf3[i] = medi_pad
+    
+    return buf1,buf2,buf3
+    

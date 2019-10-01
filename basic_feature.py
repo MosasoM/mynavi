@@ -135,7 +135,8 @@ class district_encoder:
     
 class direction_encoder:
     def __init__(self):
-        self.classi = {'北西': 0, '北東': 1, '北': 2, '南西': 3, '南東': 4, '南': 5, '西': 6, '東': 7}
+        self.classi = {'北西': 0, '北東': 1, '北': 2, '南西': 3,
+                       '南東': 4, '南': 5, '西': 6, '東': 7}
     def fit(self,x,y):
         return self
     def transform(self,x):
@@ -204,54 +205,66 @@ class add_mean_dist_price: #くごとの家賃平均を追加。分散、中央�
         self.medians = {}
         self.medi_pad = 90000
     def fit(self,x,y):
-        ty = pd.DataFrame(y)
-        ty.columns=["賃料"]
-        ty.index = x.index
-        temptemp = pd.concat([x,ty],axis = 1)
-        label = temptemp.groupby("mf_dist").mean().index.values
+#         ty = pd.DataFrame(y)
+#         ty.columns=["賃料"]
+#         ty.index = x.index
+#         temptemp = pd.concat([x,ty],axis = 1)
+#         label = temptemp.groupby("mf_dist").mean().index.values
         
-        temp = np.round(temptemp.groupby("mf_dist").mean()["賃料"].values)
-        for i in range(len(label)):
-            self.means[label[i]] = temp[i]
-        self.mean_pad = round(np.mean(temp))
+#         temp = np.round(temptemp.groupby("mf_dist").mean()["賃料"].values)
+#         for i in range(len(label)):
+#             self.means[label[i]] = temp[i]
+#         self.mean_pad = round(np.mean(temp))
         
-        temp = np.round(temptemp.groupby("mf_dist").std()["賃料"].values)
-        for i in range(len(label)):
-            self.stds[label[i]] = temp[i]
-        self.std_pad = round(np.std(temp))
+#         temp = np.round(temptemp.groupby("mf_dist").std()["賃料"].values)
+#         for i in range(len(label)):
+#             self.stds[label[i]] = temp[i]
+#         self.std_pad = round(np.std(temp))
         
-        temp = np.round(temptemp.groupby("mf_dist").median()["賃料"].values)
-        for i in range(len(label)):
-            self.medians[label[i]] = temp[i]
-        self.medi_pad = round(np.median(temp))
+#         temp = np.round(temptemp.groupby("mf_dist").median()["賃料"].values)
+#         for i in range(len(label)):
+#             self.medians[label[i]] = temp[i]
+#         self.medi_pad = round(np.median(temp))
+        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"mf_dist")
+        self.means = means
+        self.mean_pad = mean_pad
+        self.stds = stds
+        self.std_pad = std_pad
+        self.medians = medians
+        self.medi_pad = medi_pad
         
         return self
     def transform(self,x):
-        buf = [0 for i in range(len(x.values))]
-        temp = x["mf_dist"].values
-        for i in range(len(x.values)):
-            if temp[i] in self.means:
-                buf[i] = self.means[temp[i]]
-            else:
-                buf[i] = self.mean_pad
-        hoge = x.assign(d_p_mean =buf)
+#         buf = [0 for i in range(len(x.values))]
+#         temp = x["mf_dist"].values
+#         for i in range(len(x.values)):
+#             if temp[i] in self.means:
+#                 buf[i] = self.means[temp[i]]
+#             else:
+#                 buf[i] = self.mean_pad
+#         hoge = x.assign(d_p_mean =buf)
         
-        buf = [0 for i in range(len(x.values))]
-        for i in range(len(x.values)):
-            if temp[i] in self.stds:
-                buf[i] = self.stds[temp[i]]
-            else:
-                buf[i] = self.std_pad
-        hoge = x.assign(d_p_std =buf)
+#         buf = [0 for i in range(len(x.values))]
+#         for i in range(len(x.values)):
+#             if temp[i] in self.stds:
+#                 buf[i] = self.stds[temp[i]]
+#             else:
+#                 buf[i] = self.std_pad
+#         hoge = x.assign(d_p_std =buf)
         
         
-        buf = [0 for i in range(len(x.values))]
-        for i in range(len(x.values)):
-            if temp[i] in self.medians:
-                buf[i] = self.medians[temp[i]]
-            else:
-                buf[i] = self.medi_pad
-        hoge = x.assign(d_p_medi =buf)
+#         buf = [0 for i in range(len(x.values))]
+#         for i in range(len(x.values)):
+#             if temp[i] in self.medians:
+#                 buf[i] = self.medians[temp[i]]
+#             else:
+#                 buf[i] = self.medi_pad
+#         hoge = x.assign(d_p_medi =buf)
+        b_mean,b_std,b_medi = transform_price_stats_(x,"mf_dist",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+        hoge = x.copy()
+        hoge = hoge.assign(dist_p_mean=b_mean)
+        hoge = hoge.assign(dist_p_std=b_std)
+        hoge = hoge.assign(dist_p_medi=b_medi)
         return hoge
     
 class add_mean_angle_price: #方角の家賃平均を追加。分散、中央値もたす。
