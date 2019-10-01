@@ -16,6 +16,7 @@ def area_size_sq_(x):
         ans[i] = float(re.search(r"[0-9\.]+",temp[i])[0])
     return np.power(ans,2)
 
+
 def rldks_(x):
     temp = x["間取り"].values
     room = [0 for i in range(len(temp))]
@@ -31,7 +32,8 @@ def rldks_(x):
     d = np.array(setubi[1])
     k = np.array(setubi[2])
     s = np.array(setubi[3])
-    return r,l,d,k,s
+    fac = l*8+d*4+k*2*+s
+    return r,l,d,k,s,fac
 
 def how_old_(x):
     temp = x["築年数"].values

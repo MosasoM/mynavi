@@ -77,6 +77,10 @@ class rich_pre:
             ("angle_stat",add_mean_angle_price()),
             ("structure_enc",structure_label_encoder()),
             ("mean_struct",add_mean_structure_price()),
+            ("mean_walk",add_mean_walk_price()),
+            ("mean_moyori",add_moyori_walk_price()),
+#             ("mean_p0",add_p1_walk_price()),
+#             ("mean_rldk",add_rldk_price()),
 #             ("m_c_p",add_mean_city_price()), 精度低下
 #             ("mdp",add_mean_dir_price()),
             ("cross",cross_features()),

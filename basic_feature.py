@@ -50,13 +50,14 @@ class parse_rooms:
     def fit(self,x,y):
         return self
     def transform(self,x):
-        r,l,d,k,s = rldks_(x)
+        r,l,d,k,s,fac = rldks_(x)
         hoge = x.copy()
         hoge = hoge.assign(mf_r = r)
         hoge = hoge.assign(mf_l = l)
         hoge = hoge.assign(mf_d = d)
         hoge = hoge.assign(mf_k = k)
         hoge = hoge.assign(mf_s = s)
+        
         return hoge
     
 class parse_how_old:
@@ -176,21 +177,29 @@ class cross_features:
         return self
     def transform(self,x):
         hoge = x.copy()
+        
         apr,apr_all = apr_(x)
         hoge = hoge.assign(apr=apr)
         hoge = hoge.assign(apr_all=apr_all)
         acr,acr_all = acr_(x)
         hoge = hoge.assign(acr=acr)
         hoge = hoge.assign(acr_all=acr_all)
+        
         apr_sq,apr_all_sq = apr_sq_(x)
         hoge = hoge.assign(apr_sq=apr_sq)
         hoge = hoge.assign(apr_all_sq=apr_all_sq)
         acr_sq,acr_all_sq = acr_sq_(x)
         hoge = hoge.assign(acr_sq=acr_sq)
-        hoge = hoge.assign(acr_sq=acr_sq)
+        hoge = hoge.assign(acr_all_sq=acr_all_sq)
+        
+        
         per,diff = relative_height_(x)
         hoge = hoge.assign(height_percent = per)
         hoge = hoge.assign(height_diff=diff)
+        
+        temp = x["mf_year"].values/x["mf_what_floor"].values
+        hoge = hoge.assign(year_floor=temp)
+        
         return hoge
 
             
@@ -274,7 +283,110 @@ class add_mean_structure_price: #方角の家賃平均を追加。分散、中�
         hoge = hoge.assign(strct_p_medi=b_medi)
         return hoge
 
+class add_mean_walk_price: #方角の家賃平均を追加。分散、中央値もたす。
+    def __init__(self):
+        self.means = {}
+        self.mean_pad = 120000
+        self.stds = {}
+        self.std_pad = 50000
+        self.medians = {}
+        self.medi_pad = 90000
+    def fit(self,x,y):
+        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"walk")
+        self.means = means
+        self.mean_pad = mean_pad
+        self.stds = stds
+        self.std_pad = std_pad
+        self.medians = medians
+        self.medi_pad = medi_pad
+        
+        return self
+    def transform(self,x):
+        b_mean,b_std,b_medi = transform_price_stats_(x,"walk",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+        hoge = x.copy()
+        hoge = hoge.assign(strct_p_mean=b_mean)
+        hoge = hoge.assign(strct_p_std=b_std)
+        hoge = hoge.assign(strct_p_medi=b_medi)
+        return hoge
+    
+class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央値もたす。
+    def __init__(self):
+        self.means = {}
+        self.mean_pad = 120000
+        self.stds = {}
+        self.std_pad = 50000
+        self.medians = {}
+        self.medi_pad = 90000
+    def fit(self,x,y):
+        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"moyori")
+        self.means = means
+        self.mean_pad = mean_pad
+        self.stds = stds
+        self.std_pad = std_pad
+        self.medians = medians
+        self.medi_pad = medi_pad
+        
+        return self
+    def transform(self,x):
+        b_mean,b_std,b_medi = transform_price_stats_(x,"moyori",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+        hoge = x.copy()
+        hoge = hoge.assign(strct_p_mean=b_mean)
+        hoge = hoge.assign(strct_p_std=b_std)
+        hoge = hoge.assign(strct_p_medi=b_medi)
+        return hoge
 
+    
+class add_p1_walk_price: #方角の家賃平均を追加。分散、中央値もたす。
+    def __init__(self):
+        self.means = {}
+        self.mean_pad = 120000
+        self.stds = {}
+        self.std_pad = 50000
+        self.medians = {}
+        self.medi_pad = 90000
+    def fit(self,x,y):
+        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"park0")
+        self.means = means
+        self.mean_pad = mean_pad
+        self.stds = stds
+        self.std_pad = std_pad
+        self.medians = medians
+        self.medi_pad = medi_pad
+        
+        return self
+    def transform(self,x):
+        b_mean,b_std,b_medi = transform_price_stats_(x,"park0",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+        hoge = x.copy()
+        hoge = hoge.assign(strct_p_mean=b_mean)
+        hoge = hoge.assign(strct_p_std=b_std)
+        hoge = hoge.assign(strct_p_medi=b_medi)
+        return hoge
+    
+class add_rldk_price: #方角の家賃平均を追加。分散、中央値もたす。
+    def __init__(self):
+        self.means = {}
+        self.mean_pad = 120000
+        self.stds = {}
+        self.std_pad = 50000
+        self.medians = {}
+        self.medi_pad = 90000
+    def fit(self,x,y):
+        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"rldks_set")
+        self.means = means
+        self.mean_pad = mean_pad
+        self.stds = stds
+        self.std_pad = std_pad
+        self.medians = medians
+        self.medi_pad = medi_pad
+        
+        return self
+    def transform(self,x):
+        b_mean,b_std,b_medi = transform_price_stats_(x,"rldks_set",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+        hoge = x.copy()
+        hoge = hoge.assign(strct_p_mean=b_mean)
+        hoge = hoge.assign(strct_p_std=b_std)
+        hoge = hoge.assign(strct_p_medi=b_medi)
+        return hoge
 
 class train_encoder:
     def __init__(self):
@@ -300,6 +412,13 @@ class train_encoder:
         fuga = x["train"].values
         piyo = x["walk"].values
         train_dic = self.train_dic
+        for i in range(len(x["train"].values)):
+            key = fuga[i]
+            if key in self.train_dic:
+                moyori[i] = train_dic[key]+1
+
+        
+        
         for i in range(len(x["train"].values)):
             key = fuga[i]
             if key in self.train_dic:
@@ -337,6 +456,7 @@ class train_encoder:
                 t_f[i] = train_freq[temp[i]]
         hoge = hoge.assign(train_freq=t_f)
             
+        hoge = hoge.assign(moyori=moyori)
 
         hoge = hoge.drop("train",axis = 1)
         hoge = hoge.drop("train2",axis = 1)
@@ -351,7 +471,7 @@ class train_encoder:
 
 class parking_encoder:
     def __init__(self):
-        self.exist = [re.compile(r"駐輪場.+?有"),re.compile(r"駐車場.+?有"),re.compile(r"バイク置き場.+?有")]
+        self.exist = [re.compile(r"駐輪場\t.{2,}有"),re.compile(r"駐車場\t.{2,}有"),re.compile(r"バイク置き場\t.{2,}有")]
     def fit(self,x,y):
         return self
     def transform(self,x):
@@ -440,13 +560,6 @@ class info_encoder:
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
         
-#         info_freq = make_freq_elem(x["放送・通信"],self.keys)
-#         temp = x["放送・通信"].values
-#         t_f = [0 for i in range(len(temp))]
-#         for i in range(len(temp)):
-#             if temp[i] in info_freq:
-#                 t_f[i] = info_freq[temp[i]]
-#         hoge = hoge.assign(info_freq=t_f)
         return hoge
 
 
@@ -521,6 +634,7 @@ class parse_contract_time:
         hoge = hoge.assign(cont_year= add_year)
         hoge = hoge.assign(cont_month= add_month)
         return hoge
+    
 class fac_encoder:
     def __init__(self):
         self.keys = {'エアコン付': 0, 'シューズボックス': 1, 'バルコニー': 2, 'フローリング': 3,
@@ -554,13 +668,6 @@ class fac_encoder:
         setubi.index = hoge.index
         hoge = pd.concat([hoge,setubi],axis = 1)
     
-#         info_freq = make_freq_elem(x["室内設備"],self.keys)
-#         temp = x["室内設備"].values
-#         t_f = [0 for i in range(len(temp))]
-#         for i in range(len(temp)):
-#             if temp[i] in info_freq:
-#                 t_f[i] = info_freq[temp[i]]
-#         hoge = hoge.assign(fac_freq=t_f)
         return hoge
     
 class structure_label_encoder:
@@ -612,13 +719,6 @@ class bath_encoder:
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
     
-#         info_freq = make_freq_elem(x["バス・トイレ"],self.keys)
-#         temp = x["バス・トイレ"].values
-#         t_f = [0 for i in range(len(temp))]
-#         for i in range(len(temp)):
-#             if temp[i] in info_freq:
-#                 t_f[i] = info_freq[temp[i]]
-#         hoge = hoge.assign(bath_freq=t_f)
         return hoge
     
 class kitchin_encoder:
@@ -654,13 +754,6 @@ class kitchin_encoder:
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
         
-#         info_freq = make_freq_elem(x["キッチン"],self.keys)
-#         temp = x["キッチン"].values
-#         t_f = [0 for i in range(len(temp))]
-#         for i in range(len(temp)):
-#             if temp[i] in info_freq:
-#                 t_f[i] = info_freq[temp[i]]
-#         hoge = hoge.assign(kit_freq=t_f)
         return hoge
     
 class env_encoder:
@@ -685,8 +778,9 @@ class env_encoder:
                 for b in block:
                     key = pat.sub("",b)
                     if p2.match(key):
-                        if key in self.keys:
-                            setubi[i][self.keys[key]] = 1                 
+                        txt = p2.match(key)[0]
+                        if txt in self.keys:
+                            setubi[i][self.keys[key]] += 1                 
         setubi = pd.DataFrame(setubi)
         c_num = len(setubi.columns)
         col = []
@@ -696,14 +790,35 @@ class env_encoder:
         hoge = x.drop("周辺環境",axis = 1)
         setubi.index = hoge.index
         hoge = pd.concat([hoge,setubi],axis = 1)
-    
-#         info_freq = make_freq_elem(x["室内設備"],self.keys)
-#         temp = x["室内設備"].values
-#         t_f = [0 for i in range(len(temp))]
-#         for i in range(len(temp)):
-#             if temp[i] in info_freq:
-#                 t_f[i] = info_freq[temp[i]]
-#         hoge = hoge.assign(fac_freq=t_f)
+        
+        temp = x["周辺環境"].values
+        setubi = [[10000 for i in range(len(self.keys))] for j in range(len(temp))]
+        pat = re.compile(r"／")
+        p2 = re.compile("【.*】")
+        p3 = re.compile("[0-9]+?m")
+        for i in range(len(temp)):
+            if temp[i] != temp[i]:
+                continue
+            else:
+                block = temp[i].split()
+                for b in block:
+                    key = pat.sub("",b)
+                    if p2.match(key):
+                        txt = p2.match(key)[0]
+                        if p3.search(key):
+                            dist = p3.search(key)[0][:-1]
+                            if txt in self.keys:
+                                setubi[i][self.keys[key]] = min(int(dist),setubi[i][self.keys[key]])       
+        setubi = pd.DataFrame(setubi)
+        c_num = len(setubi.columns)
+        col = []
+        for i in range(c_num):
+            col.append("env_dist"+str(i))
+        setubi.columns = col
+        setubi.index = hoge.index
+        hoge = pd.concat([hoge,setubi],axis = 1)
+        
+
         
         return hoge
 
