@@ -1,3 +1,48 @@
+class classfy_pre:
+    def __init__(self):
+        self.steps = [
+            ("drop_id",drop_id()),
+            ("parse_area",parse_area_size()),
+            ("parse_room",parse_rooms()),
+            ("parse_old",parse_how_old()),
+            ("height_enc",height_encoder()),
+            ("ex_dist",extract_district()),
+            ("label_dist",district_encoder()),
+            ("acc_ext",access_extractor()),
+            ("tr_enc",train_encoder()),
+            ("parking_encoder",parking_encoder()),
+            ("dir_enc",direction_encoder()),#なんか精度低下した
+            ("info_enc",info_encoder()),
+            ("cross",cross_features()),
+            ("drop_unnecessary",drop_unnecessary())
+        ]
+
+class poor_pre:
+    def __init__(self):
+        self.steps = [
+            ("drop_id",drop_id()),
+            ("parse_area",parse_area_size()),
+            ("parse_room",parse_rooms()),
+            ("parse_old",parse_how_old()),
+            ("height_enc",height_encoder()),
+            ("ex_dist",extract_district()),
+            ("label_dist",district_encoder()),
+            ("acc_ext",access_extractor()),
+            ("tr_enc",train_encoder()),
+            ("parking_encoder",parking_encoder()),
+            ("dir_enc",direction_encoder()),#なんか精度低下したがバグのせいだったかも
+            ("info_enc",info_encoder()),
+            ("m_d_p",add_mean_dist_price()),
+            ("p_con_time",parse_contract_time()),
+            ("fac",fac_encoder()),
+            ("bath",bath_encoder()),
+            ("kit",kitchin_encoder()),
+            ("env",env_encoder()),
+#             ("m_c_p",add_mean_city_price()),精度低下
+#             ("mdp",add_mean_dir_price()),
+            ("cross",cross_features()),
+            ("drop_unnecessary",drop_unnecessary())
+        ]
 
 class add_mean_city_price: #くごとの家賃平均を追加。分散とか足してもいいかも
     def __init__(self):
