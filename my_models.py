@@ -6,13 +6,14 @@ import lightgbm as lgbm
 from sklearn.metrics import mean_squared_error
 import datetime
 from single import *
+import pickle
+
 
 
 
 class rich_pre:
     def __init__(self):
         self.steps = [
-            ("drop_id",drop_id()),
             ("parse_area",parse_area_size()),
             ("parse_room",parse_rooms()),
             ("parse_old",parse_how_old()),
@@ -38,7 +39,6 @@ class rich_pre:
 #             ("mean_p0",add_p1_walk_price()),
 #             ("mean_rldk",add_rldk_price()),
 #             ("m_c_p",add_mean_city_price()), 精度低下
-#             ("mdp",add_mean_dir_price()),
             ("cross",cross_features()),
             ("drop_unnecessary",drop_unnecessary())
         ]
@@ -142,6 +142,7 @@ def check(comment,train_x,train_y):
     for key in d1:
         f.write(key+" "+str(d1[key])+"\n")
     f.write("\n")
+    f.close()
     
 def each_models(train_x,train_y):
     easy = easy_model()
@@ -160,5 +161,6 @@ def commit(model,train_x,train_y,test,name):
     pred.columns=["pred"]
     pred.index = test.index
     pred = pd.concat([test["id"],pred],axis=1)
-    pred.to_csv(name,header=False,index=False)
+    pred.to_csv(name+".csv",header=False,index=False)
+    pickle.dump(model, open(name+".pkl", "wb"))
     
