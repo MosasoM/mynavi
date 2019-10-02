@@ -24,13 +24,7 @@ from single import *
 from cross import *
 from stats_fea import *
 
-class drop_id:
-    def __init__(self):
-        pass
-    def fit(self,x,y):
-        return self
-    def transform(self,x):
-        return x.drop("id",axis = 1)
+
 class parse_area_size:
     def __init__(self):
         pass
@@ -105,24 +99,32 @@ class district_encoder:
     def fit(self,x,y):
         self.dist_label = {}
         self.city_label = {}
+        self.dist_rare = {}
+        hoge = x.groupby("district")["id"].count()
         ind = 1
         for key in x["district"].unique():
             self.dist_label[key] = ind
             ind += 1
+            self.dist_rare[key] = hoge[key]
         ind = 1
         for key in x["city"].unique():
             self.city_label[key] = ind
             ind += 1
+
+        
         return self
       
     def transform(self,x):
         temp = x["district"].values
         buf = [0 for i in range(len(temp))]
+        buf2 = [0 for i in range(len(temp))]
         hoge = x.drop("district",axis=1)
         for i in range(len(temp)):
             if temp[i] in self.dist_label:
                 buf[i] = self.dist_label[temp[i]]
+                buf2[i] = self.dist_rare[temp[i]]
         hoge = hoge.assign(mf_dist=buf)
+        hoge = hoge.assign(dist_rare=buf2)
         
         buf = [0 for i in range(len(temp))]
         temp = x["city"].values
@@ -504,27 +506,27 @@ class parking_encoder:
         for i in range(len(temp)):
             if temp[i]!=temp[i] or d[i][1] == 1:
                 continue
-#             cost = 0
+            cost = 0
             dist = 0
             m = pat.search(temp[i])
             if m:
                 kinrin[i] = 1
                 txt = m[0]
-#                 cost = p2.search(txt)[0]
-#                 cost = p3.sub("",cost)
-#                 cost = int(cost[:-1])
+                cost = p2.search(txt)[0]
+                cost = p3.sub("",cost)
+                cost = int(cost[:-1])
                 dist = p4.search(txt)[0]
                 dist = int(dist[2:-1])
             else:
                 m = pat2.search(temp[i])
                 if m:
                     kinrin[i] = 1
-#                     cost = 20000
+                    cost = 20000
                     dist = 200
-#             parking_cost[i] = cost
+            parking_cost[i] = cost
             parking_dist[i] = dist
 #         hoge = hoge.assign(p_cost=parking_cost)
-        hoge = hoge.assign(p_dist=parking_dist)
+#         hoge = hoge.assign(p_dist=parking_dist)
         hoge = hoge.assign(kinrin=kinrin)
         
         return hoge
@@ -534,27 +536,53 @@ class parking_encoder:
     
 class info_encoder:
     def __init__(self):
-        self.keys = {'インターネット対応': 0, 'CATV': 1, 'CSアンテナ': 2, 'BSアンテナ': 3,
+        self.tags = {'インターネット対応': 0, 'CATV': 1, 'CSアンテナ': 2, 'BSアンテナ': 3,
                      '光ファイバー': 4, '高速インターネット': 5, 'インターネット使用料無料': 6,"有線放送":7}
+        self.rare = {}
     def fit(self,x,y):
+        for key in self.tags.keys():
+            temp = x["放送・通信"].str.contains(key).sum()
+            self.rare[key] = temp
         return self
     def transform(self,x):
         temp = x["放送・通信"].values
-        setubi = [[0 for i in range(len(self.keys))] for j in range(len(temp))]
+        setubi = [[0 for i in range(len(self.tags))] for j in range(len(temp))]
+        setubi2 = [[0 for i in range(len(self.tags))] for j in range(len(temp))]
         pat = re.compile(r"／")
+        tot = len(temp)
         for i in range(len(temp)):
             if temp[i] != temp[i]:
                 continue
             else:
                 block = temp[i].split()
-                for b in block:
-                    if pat.sub("",b) in self.keys:
-                        setubi[i][self.keys[pat.sub("",b)]] = 1
+                for i in range(len(block)):
+                    block[i] = pat.sub("",block[i])
+                for key in self.tags.keys():
+                    if key in block:
+                        setubi[i][self.tags[key]] = self.rare[key]
+                        setubi2[i][self.tags[key]] = 1
+                    else:
+                        setubi[i][self.tags[key]] = tot-self.rare[key]
+                        setubi2[i][self.tags[key]] = 0
+#                 block = temp[i].split()
+#                 for b in block:
+#                     if pat.sub("",b) in self.keys:
+#                         setubi[i][self.keys[pat.sub("",b)]] = 1
         setubi = pd.DataFrame(setubi)
         c_num = len(setubi.columns)
         col = []
         for i in range(c_num):
-            col.append("info"+str(i))
+            col.append("info_rare"+str(i))
+        setubi.columns = col
+        hoge = x.drop("放送・通信",axis = 1)
+        setubi.index = hoge.index
+        hoge =  pd.concat([hoge,setubi],axis = 1)
+        
+        setubi = pd.DataFrame(setubi2)
+        c_num = len(setubi.columns)
+        col = []
+        for i in range(c_num):
+            col.append("info_one"+str(i))
         setubi.columns = col
         hoge = x.drop("放送・通信",axis = 1)
         setubi.index = hoge.index
@@ -568,14 +596,14 @@ class info_encoder:
 class drop_unnecessary:
     def __init__(self):
         self.to_drop = []
-        self.valid = ['id', '賃料', '所在地', 'アクセス', '間取り', '築年数', '方角', '面積', '所在階', 'バス・トイレ',
+        self.invalid = ['id', '賃料', '所在地', 'アクセス', '間取り', '築年数', '方角', '面積', '所在階', 'バス・トイレ',
        'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train"]
         self.pat = []
     def fit(self,x,y):
         return self
     def transform(self,x):
         tmp = x.drop(self.to_drop,axis = 1)
-        for name in self.valid:
+        for name in self.invalid:
             if name in tmp.columns:
                 tmp = tmp.drop(name,axis = 1)
         return tmp
@@ -632,41 +660,68 @@ class parse_contract_time:
         hoge = hoge.drop(["契約期間"],axis = 1)
         hoge = hoge.assign(is_teiki=isteiki)
         hoge = hoge.assign(cont_year= add_year)
-        hoge = hoge.assign(cont_month= add_month)
+#         hoge = hoge.assign(cont_month= add_month)
         return hoge
     
 class fac_encoder:
     def __init__(self):
-        self.keys = {'エアコン付': 0, 'シューズボックス': 1, 'バルコニー': 2, 'フローリング': 3,
+        self.tags = {'エアコン付': 0, 'シューズボックス': 1, 'バルコニー': 2, 'フローリング': 3,
                      '室内洗濯機置場': 4, '敷地内ごみ置き場': 5, 'エレベーター': 6, '公営水道': 7,
                      '下水': 8, '都市ガス': 9, 'タイル張り': 10, 'ウォークインクローゼット': 11, '2面採光': 12,
                      '24時間換気システム': 13, '3面採光': 14, 'ペアガラス': 15, '専用庭': 16, '水道その他': 17,
                      '冷房': 18, 'クッションフロア': 19, '床暖房': 20, 'プロパンガス': 21, 'ロフト付き': 22,
                      '出窓': 23, 'トランクルーム': 24, 'オール電化': 25, 'ルーフバルコニー': 26, '室外洗濯機置場': 27,
                      '床下収納': 28, 'バリアフリー': 29, '防音室': 30, '二重サッシ': 31, '洗濯機置場なし': 32}
+        self.rare = {}
     def fit(self,x,y):
+        for key in self.tags.keys():
+            temp = x["バス・トイレ"].str.contains(key).sum()
+            self.rare[key] = temp
+        
         return self
     def transform(self,x):
         temp = x["室内設備"].values
-        setubi = [[0 for i in range(len(self.keys))] for j in range(len(temp))]
+        setubi = [[0 for i in range(len(self.tags))] for j in range(len(temp))]
+        setubi2 = [[0 for i in range(len(self.tags))] for j in range(len(temp))]
         pat = re.compile(r"／")
+        tot = len(temp)
         for i in range(len(temp)):
             if temp[i] != temp[i]:
                 continue
             else:
                 block = temp[i].split()
-                for b in block:
-                    if pat.sub("",b) in self.keys:
-                        setubi[i][self.keys[pat.sub("",b)]] = 1
+                for i in range(len(block)):
+                    block[i] = pat.sub("",block[i])
+                for key in self.tags.keys():
+                    if key in block:
+                        setubi[i][self.tags[key]] = self.rare[key]
+                        setubi2[i][self.tags[key]] = 1
+                    else:
+                        setubi[i][self.tags[key]] = tot-self.rare[key]
+                        setubi2[i][self.tags[key]] = 0
+#                 block = temp[i].split()
+#                 for b in block:
+#                     if pat.sub("",b) in self.keys:
+#                         setubi[i][self.keys[pat.sub("",b)]] = 1
         setubi = pd.DataFrame(setubi)
         c_num = len(setubi.columns)
         col = []
         for i in range(c_num):
-            col.append("fac"+str(i))
+            col.append("fac_rare"+str(i))
         setubi.columns = col
         hoge = x.drop("室内設備",axis = 1)
         setubi.index = hoge.index
         hoge = pd.concat([hoge,setubi],axis = 1)
+        
+        
+        setubi = pd.DataFrame(setubi2)
+        c_num = len(setubi.columns)
+        col = []
+        for i in range(c_num):
+            col.append("fac_one"+str(i))
+        setubi.columns = col
+        setubi.index = hoge.index
+        hoge =  pd.concat([hoge,setubi],axis = 1)
     
         return hoge
     
@@ -692,30 +747,52 @@ class structure_label_encoder:
     
 class bath_encoder:
     def __init__(self):
-        self.keys = {'専用バス':0,'専用トイレ':1,'バス・トイレ別':2,'シャワー':3,
+        self.tags = {'専用バス':0,'専用トイレ':1,'バス・トイレ別':2,'シャワー':3,
                      '浴室乾燥機':4,'温水洗浄便座':5,'洗面台独立':6,'脱衣所':7,
                      '追焚機能':8}
+        self.rare = {}
     def fit(self,x,y):
+        for key in self.tags.keys():
+            temp = x["バス・トイレ"].str.contains(key).sum()
+            self.rare[key] = temp
+        
         return self
     def transform(self,x):
         temp = x["バス・トイレ"].values
-        setubi = [[0 for i in range(len(self.keys))] for j in range(len(temp))]
+        setubi = [[0 for i in range(len(self.tags))] for j in range(len(temp))]
+        setubi2 = [[0 for i in range(len(self.tags))] for j in range(len(temp))]
         pat = re.compile(r"／")
+        tot = len(temp)
         for i in range(len(temp)):
             if temp[i] != temp[i]:
                 continue
             else:
                 block = temp[i].split()
-                for b in block:
-                    if pat.sub("",b) in self.keys:
-                        setubi[i][self.keys[pat.sub("",b)]] = 1
+                for i in range(len(block)):
+                    block[i] = pat.sub("",block[i])
+                for key in self.tags.keys():
+                    if key in block:
+                        setubi[i][self.tags[key]] = self.rare[key]
+                        setubi2[i][self.tags[key]] = 1
+                    else:
+                        setubi[i][self.tags[key]] = tot-self.rare[key]
+                        setubi2[i][self.tags[key]] = 0
         setubi = pd.DataFrame(setubi)
         c_num = len(setubi.columns)
         col = []
         for i in range(c_num):
-            col.append("bath"+str(i))
+            col.append("bath_rare"+str(i))
         setubi.columns = col
         hoge = x.drop("バス・トイレ",axis = 1)
+        setubi.index = hoge.index
+        hoge =  pd.concat([hoge,setubi],axis = 1)
+        
+        setubi = pd.DataFrame(setubi2)
+        c_num = len(setubi.columns)
+        col = []
+        for i in range(c_num):
+            col.append("bath_one"+str(i))
+        setubi.columns = col
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
     
