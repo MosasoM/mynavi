@@ -52,6 +52,10 @@ def fit_price_stats_(x,y,category_col):
     std_pad = 50000
     medians = {}
     medi_pad = 90000
+    maxs = {}
+    max_pad = 1000000
+    mins = {}
+    min_pad = 1000000
         
     temp = np.round(temptemp.groupby(category_col).mean()["賃料"].values)
     for i in range(len(label)):
@@ -67,12 +71,22 @@ def fit_price_stats_(x,y,category_col):
     for i in range(len(label)):
         medians[label[i]] = temp[i]
     medi_pad = round(np.median(temp))
+
+    temp = np.round(temptemp.groupby(category_col).max()["賃料"].values)
+    for i in range(len(label)):
+        maxs[label[i]] = temp[i]
+    max_pad = round(np.max(temp))
+
+    temp = np.round(temptemp.groupby(category_col).min()["賃料"].values)
+    for i in range(len(label)):
+        mins[label[i]] = temp[i]
+    min_pad = round(np.min(temp))
     
-    return means,mean_pad,stds,std_pad,medians,medi_pad
+    return means,mean_pad,stds,std_pad,medians,medi_pad,maxs,max_pad,mins,min_pad
 
 
 
-def transform_price_stats_(x,category_col,means,mean_pad,stds,std_pad,medians,medi_pad):
+def transform_price_stats_(x,category_col,means,mean_pad,stds,std_pad,medians,medi_pad,maxs,max_pad,mins,min_pad):
     buf1 = [0 for i in range(len(x.values))]
     temp = x[category_col].values
     for i in range(len(x.values)):
@@ -95,6 +109,20 @@ def transform_price_stats_(x,category_col,means,mean_pad,stds,std_pad,medians,me
             buf3[i] = medians[temp[i]]
         else:
             buf3[i] = medi_pad
+
+    buf4 = [0 for i in range(len(x.values))]
+    for i in range(len(x.values)):
+        if temp[i] in maxs:
+            buf4[i] = maxs[temp[i]]
+        else:
+            buf4[i] = max_pad
+
+    buf5 = [0 for i in range(len(x.values))]
+    for i in range(len(x.values)):
+        if temp[i] in mins:
+            buf5[i] = mins[temp[i]]
+        else:
+            buf5[i] = min_pad
     
-    return buf1,buf2,buf3
+    return buf1,buf2,buf3,buf4,buf5
     

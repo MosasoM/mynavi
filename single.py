@@ -32,8 +32,7 @@ def rldks_(x):
     d = np.array(setubi[1])
     k = np.array(setubi[2])
     s = np.array(setubi[3])
-    fac = l*8+d*4+k*2*+s
-    return r,l,d,k,s,fac
+    return r,l,d,k,s
 
 def how_old_(x):
     temp = x["築年数"].values
@@ -45,7 +44,7 @@ def how_old_(x):
         year = year_pat.search(temp[i])
         month = month_pat.search(temp[i])
         if re.match(r"新築",temp[i]):
-            year = 2
+            year = -1
             month = 0
         else:
             if year:
@@ -87,21 +86,26 @@ def height_of_it_(x):
 
 def address_of_it_(x):
     pat = re.compile(r"東京都.+区")
-    p2 = re.compile(r"区.+?([０-９]|[0-9]|町)")
-    p3 = re.compile(r"区.+")
+    p2 = re.compile(r"区.+?[０-９]丁目")
+    p3 = re.compile(r"区.+?町")
+    p4 = re.compile(r"区.+")
     dist = ["" for i in range(len(x.values))]
     area = ["" for i in range(len(x.values))]
     tmp = x["所在地"].values
     for i in range(len(tmp)):
         m = pat.search(tmp[i])
-        dist[i] = m[0][3:-1]
+        dist[i] = m[0][3:]
         m = p2.search(tmp[i])
         if m:
-            area[i] = m[0][1:-1]
+            area[i] = m[0][1:]
         else:
             m = p3.search(tmp[i])
             if m:
                 area[i] = m[0][1:]
+            else:
+                m = p4.search(tmp[i])
+                if m:
+                    area[i] = m[0][1:]
     return dist,area
 
 def train_and_walk_(x):
