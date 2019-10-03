@@ -1,74 +1,12 @@
-class classfy_pre:
-    def __init__(self):
-        self.steps = [
-            ("drop_id",drop_id()),
-            ("parse_area",parse_area_size()),
-            ("parse_room",parse_rooms()),
-            ("parse_old",parse_how_old()),
-            ("height_enc",height_encoder()),
-            ("ex_dist",extract_district()),
-            ("label_dist",district_encoder()),
-            ("acc_ext",access_extractor()),
-            ("tr_enc",train_encoder()),
-            ("parking_encoder",parking_encoder()),
-            ("dir_enc",direction_encoder()),#なんか精度低下した
-            ("info_enc",info_encoder()),
-            ("cross",cross_features()),
-            ("drop_unnecessary",drop_unnecessary())
-        ]
-
-class poor_pre:
-    def __init__(self):
-        self.steps = [
-            ("drop_id",drop_id()),
-            ("parse_area",parse_area_size()),
-            ("parse_room",parse_rooms()),
-            ("parse_old",parse_how_old()),
-            ("height_enc",height_encoder()),
-            ("ex_dist",extract_district()),
-            ("label_dist",district_encoder()),
-            ("acc_ext",access_extractor()),
-            ("tr_enc",train_encoder()),
-            ("parking_encoder",parking_encoder()),
-            ("dir_enc",direction_encoder()),#なんか精度低下したがバグのせいだったかも
-            ("info_enc",info_encoder()),
-            ("m_d_p",add_mean_dist_price()),
-            ("p_con_time",parse_contract_time()),
-            ("fac",fac_encoder()),
-            ("bath",bath_encoder()),
-            ("kit",kitchin_encoder()),
-            ("env",env_encoder()),
-#             ("m_c_p",add_mean_city_price()),精度低下
-#             ("mdp",add_mean_dir_price()),
-            ("cross",cross_features()),
-            ("drop_unnecessary",drop_unnecessary())
-        ]
-
-class add_mean_city_price: #くごとの家賃平均を追加。分散とか足してもいいかも
-    def __init__(self):
-        self.means = {}
-        self.mm = 124000
-    def fit(self,x,y):
-        ty = pd.DataFrame(y)
-        ty.columns=["賃料"]
-        ty.index = x.index
-        temptemp = pd.concat([x,ty],axis = 1)
-        temp = np.round(temptemp.groupby("city").mean()["賃料"].values)
-        label = temptemp.groupby("city").mean().index.values
-        for i in range(len(label)):
-            self.means[label[i]] = temp[i]
-        self.mm = round(np.mean(temp))
-        return self
-    def transform(self,x):
-        buf = [0 for i in range(len(x.values))]
-        temp = x["city"].values
-        for i in range(len(x.values)):
-            if temp[i] in self.means:
-                buf[i] = self.means[temp[i]]
-            else:
-                buf[i] = self.mm
-        hoge = x.assign(c_p_mean =buf)
-        return hoge
+def commit(model,train_x,train_y,test,name):
+    model.fit(train_x,train_y)
+    pred = model.predict(test)
+    pred = pd.DataFrame(pred)
+    pred.columns=["pred"]
+    pred.index = test.index
+    pred = pd.concat([test["id"],pred],axis=1)
+    pred.to_csv(name+".csv",header=False,index=False)
+    pickle.dump(model, open(name+".pkl", "wb"))
 
 def classify_ensemble(models,x_valid):
     p = []
@@ -86,9 +24,8 @@ def classify_ensemble(models,x_valid):
             predict[i] = 0
     predict = np.array(predict,dtype=np.int64)
     return predict
-
 class bin_model_score:
-    def __init__(self,is_log=True,threshold=200000):
+    def __init__(self,is_log=True,threshold=150000):
         hoge = classfy_pre()
         pre_step = hoge.steps
         m1 = [
@@ -143,18 +80,19 @@ class bin_model_score:
         
         self.p_models = [
             Pipeline(steps=poor_step_xgb),
-            Pipeline(steps=poor_step_rfr),
-            Pipeline(steps=poor_step_lgbm),
+            # Pipeline(steps=poor_step_rfr),
+            # Pipeline(steps=poor_step_lgbm),
         ]
         self.r_models = [
             Pipeline(steps=rich_step_xgb),
-            Pipeline(steps=rich_step_rfr),
-            Pipeline(steps=rich_step_lgbm),
+            # Pipeline(steps=rich_step_rfr),
+            # Pipeline(steps=rich_step_lgbm),
         ]    
         self.c_models = [
             Pipeline(steps=m1),
-            Pipeline(steps=m2),
+            # Pipeline(steps=m2),
             Pipeline(steps=m3),
+            Pipeline(steps=m4),
         ]
         self.threshold = threshold
         self.is_log = is_log
@@ -223,8 +161,6 @@ class bin_model_score:
             buf.append(ans.query("id==@num")["Price"].values)
         return buf
     def each_predict_score(self,train_x,train_y):
-#         temp_x = train_x.drop("賃料",axis = 1)
-#         temp_y = train_x["賃料"]
         x_train,x_valid,y_train,y_valid = train_test_split(train_x,train_y,random_state=7777)
         self.fit(x_train,y_train)
         th = self.threshold
@@ -301,11 +237,43 @@ def check_specs(comment,train_x,train_y,border=200000):
     for key in d2:
         f.write(key+" "+str(d2[key])+"\n")
 
+def check_splitter(x_train,x_valid,y_train,y_valid,threshold=150000):
+    temp = y_train.values
+    is_rich_label = [0 for i in range(len(temp))]
+    hoge = classfy_pre()
+    pre_step = hoge.steps
+    m1 = [
+        ("pre", Pipeline(steps = pre_step)),
+        ("xgb",xgb.XGBRegressor(random_state=7777,objective="reg:logistic"))
+    ]
+    m2 = [
+        ("pre", Pipeline(steps = pre_step)),
+        ("rfr",RandomForestRegressor(random_state=7777))
+    ]
+    m3 = [
+        ("pre", Pipeline(steps = pre_step)),
+        ("lgi",LogisticRegression(random_state=7777))
+    ]
+    m4 = [
+        ("pre", Pipeline(steps = pre_step)),
+        ("lgbm",lgbm.LGBMRegressor(random_state=7777))
+    ]
+    models = [
+        Pipeline(steps=m1),
+        Pipeline(steps=m2),
+        Pipeline(steps=m3),
+        Pipeline(steps=m4)
+    ]
+    for i in range(len(temp)):
+        if temp[i] > threshold:
+            is_rich_label[i] = 1
+    for i in range(len(models)):
+        models[i].fit(x_train,is_rich_label)
 
-class dummy:
-    def __init__(self):
-        pass
-    def fit(self,x,y):
-        return self
-    def predict(self,x):
-        return x
+    pred = classify_ensemble(models,x_valid)
+    temp = y_valid.values
+    is_rich_label = [0 for i in range(len(temp))]
+    for i in range(len(temp)):
+        if temp[i] > threshold:
+            is_rich_label[i] = 1
+    print(accuracy_score(pred,is_rich_label))

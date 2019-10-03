@@ -1,16 +1,7 @@
 import pandas as pd
 import numpy as np
 import xgboost as xgb
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error,mean_squared_error
-from keras.models import Sequential
-from keras.layers import Dense,Dropout
-from keras.optimizers import Adam
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import r2_score
+from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import OneHotEncoder,LabelEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVR
@@ -22,7 +13,8 @@ from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LogisticRegression
 from single import *
 from cross import *
-from stats_fea import *
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
 
 class parse_area_size:
     def __init__(self):
@@ -50,6 +42,7 @@ class parse_rooms:
         hoge = hoge.assign(mf_d = d)
         hoge = hoge.assign(mf_k = k)
         hoge = hoge.assign(mf_s = s)
+        # hoge = hoge.assign(rldks_set=fac)
         
         return hoge
     
@@ -193,6 +186,17 @@ class cross_features:
         temp = x["mf_year"].values/x["mf_what_floor"].values
         hoge = hoge.assign(year_floor=temp)
         
+        temp = x["mf_areasize"].values*x["mf_what_floor"].values
+        hoge = hoge.assign(area_fot_floor = temp)
+        
+#         temp = x["mf_areasize"].values*x["mf_height_bld"].values
+#         hoge = hoge.assign(area_fot_floor = temp)
+#         temp = x["walk"].values/x["mf_what_floor"].values
+#         hoge = hoge.assign(walk_floor = temp)
+
+#         temp = x["walk"].values/x["mf_areasize"].values
+#         hoge = hoge.assign(walk_floor = temp)  ちょっとした悪化。後から復活してもいいかもくらいのレベル
+        
         return hoge
 
             
@@ -276,6 +280,49 @@ class add_mean_structure_price: #方角の家賃平均を追加。分散、中�
         hoge = hoge.assign(strct_p_medi=b_medi)
         return hoge
 
+class walk_cat:
+    def __init__(self):
+        pass
+
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        th = [5,10,20,1000]
+        ans = [1 for i in range(len(x.values))]
+        temp = x["walk"].values
+        for i in range(len(x.values)):
+            for j in range(len(th)):
+                if temp[i] <= th[j]:
+                    ans[i] = j
+                    break
+        return x.assign(walk_label=ans)
+
+# class add_mean_walk_price: #方角の家賃平均を追加。分散、中央値もたす。
+#     def __init__(self):
+#         self.means = {}
+#         self.mean_pad = 120000
+#         self.stds = {}
+#         self.std_pad = 50000
+#         self.medians = {}
+#         self.medi_pad = 90000
+#     def fit(self,x,y):
+#         means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"walk_label")
+#         self.means = means
+#         self.mean_pad = mean_pad
+#         self.stds = stds
+#         self.std_pad = std_pad
+#         self.medians = medians
+#         self.medi_pad = medi_pad
+        
+#         return self
+#     def transform(self,x):
+#         b_mean,b_std,b_medi = transform_price_stats_(x,"walk_label",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+#         hoge = x.copy()
+#         hoge = hoge.assign(walk_p_mean=b_mean) # アサインの名前間違い
+#         hoge = hoge.assign(walk_p_std=b_std)
+#         hoge = hoge.assign(walk_p_medi=b_medi)
+#         return hoge
+
 class add_mean_walk_price: #方角の家賃平均を追加。分散、中央値もたす。
     def __init__(self):
         self.means = {}
@@ -297,9 +344,9 @@ class add_mean_walk_price: #方角の家賃平均を追加。分散、中央値�
     def transform(self,x):
         b_mean,b_std,b_medi = transform_price_stats_(x,"walk",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
         hoge = x.copy()
-        hoge = hoge.assign(strct_p_mean=b_mean)
-        hoge = hoge.assign(strct_p_std=b_std)
-        hoge = hoge.assign(strct_p_medi=b_medi)
+        hoge = hoge.assign(walk_p_mean=b_mean) # アサインの名前間違い
+        # hoge = hoge.assign(walk_p_std=b_std)
+        hoge = hoge.assign(walk_p_medi=b_medi)
         return hoge
     
 class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央値もたす。
@@ -323,9 +370,9 @@ class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央�
     def transform(self,x):
         b_mean,b_std,b_medi = transform_price_stats_(x,"moyori",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
         hoge = x.copy()
-        hoge = hoge.assign(strct_p_mean=b_mean)
-        hoge = hoge.assign(strct_p_std=b_std)
-        hoge = hoge.assign(strct_p_medi=b_medi)
+        hoge = hoge.assign(moyori_p_mean=b_mean) #アサインの名前間違い
+        hoge = hoge.assign(moyori_p_std=b_std)
+        hoge = hoge.assign(moyori_p_medi=b_medi)
         return hoge
 
     
@@ -350,9 +397,9 @@ class add_p1_walk_price: #方角の家賃平均を追加。分散、中央値も
     def transform(self,x):
         b_mean,b_std,b_medi = transform_price_stats_(x,"park0",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
         hoge = x.copy()
-        hoge = hoge.assign(strct_p_mean=b_mean)
-        hoge = hoge.assign(strct_p_std=b_std)
-        hoge = hoge.assign(strct_p_medi=b_medi)
+        hoge = hoge.assign(p1_p_mean=b_mean) #アサインの名前間違い
+        hoge = hoge.assign(p1_p_std=b_std)
+        hoge = hoge.assign(p1_p_medi=b_medi)
         return hoge
     
 class add_rldk_price: #方角の家賃平均を追加。分散、中央値もたす。
@@ -376,9 +423,9 @@ class add_rldk_price: #方角の家賃平均を追加。分散、中央値もた
     def transform(self,x):
         b_mean,b_std,b_medi = transform_price_stats_(x,"rldks_set",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
         hoge = x.copy()
-        hoge = hoge.assign(strct_p_mean=b_mean)
-        hoge = hoge.assign(strct_p_std=b_std)
-        hoge = hoge.assign(strct_p_medi=b_medi)
+        hoge = hoge.assign(rldk_p_mean=b_mean)
+        hoge = hoge.assign(rldk_p_std=b_std)
+        hoge = hoge.assign(rldk_p_medi=b_medi)
         return hoge
 
 class train_encoder:
@@ -400,7 +447,7 @@ class train_encoder:
         self.train_dic = train_dic
         return self
     def transform(self,x):
-        temp = [[100 for i in range(len(self.train_dic))] for j in range(len(x.values))]
+        temp = [[30 for i in range(len(self.train_dic))] for j in range(len(x.values))]
         moyori = [0 for i in range(len(x.values))]
         fuga = x["train"].values
         piyo = x["walk"].values
@@ -709,9 +756,6 @@ class bath_encoder:
     
 class kitchin_encoder:
     def __init__(self):
-        # self.keys = {'ガスコンロ': 0, 'コンロ2口': 1, 'システムキッチン': 2, '給湯': 3, '独立キッチン': 4,
-        #              'コンロ3口': 5, 'IHコンロ': 6, 'コンロ1口': 7, '冷蔵庫あり': 8, 'コンロ設置可': 9,
-        #              'カウンターキッチン': 10, 'L字キッチン': 11, '電気コンロ': 12, 'コンロ4口以上': 13}
         self.keys = {
             'ガスコンロ':0, 'コンロ設置可（コンロ1口）':1, 'コンロ設置可（コンロ3口）':2, '給湯':3,
              'コンロ設置可（コンロ2口）':4, 'コンロ4口以上':5, 'L字キッチン':6, '電気コンロ':7,
@@ -814,7 +858,96 @@ class env_encoder:
 
         
         return hoge
+    
+class k_means_label:
+    def __init__(self,k = 5):
+        self.kmeans = KMeans(n_clusters=k)
+        self.scale = StandardScaler()
+    
+    def fit(self,x,y):
+        data = x[["mf_areasize","mf_year","walk"]].values
+        self.scale.fit(data)
+        data = self.scale.transform(data)
+        self.kmeans.fit(data)
+        return self
+    
+    def transform(self,x):
+        data = x[["mf_areasize","mf_year","walk"]].values
+        data = self.scale.transform(data)
+        pred = self.kmeans.predict(data)
+        return x.assign(clust_label=pred)
+    
+    
+class add_clust_price: #方角の家賃平均を追加。分散、中央値もたす。
+    def __init__(self):
+        self.means = {}
+        self.mean_pad = 120000
+        self.stds = {}
+        self.std_pad = 50000
+        self.medians = {}
+        self.medi_pad = 90000
+    def fit(self,x,y):
+        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"clust_label")
+        self.means = means
+        self.mean_pad = mean_pad
+        self.stds = stds
+        self.std_pad = std_pad
+        self.medians = medians
+        self.medi_pad = medi_pad
+        
+        return self
+    def transform(self,x):
+        b_mean,b_std,b_medi = transform_price_stats_(x,"clust_label",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+        hoge = x.copy()
+        hoge = hoge.assign(clust_p_mean=b_mean)
+        hoge = hoge.assign(clust_p_std=b_std)
+        hoge = hoge.assign(clust_p_medi=b_medi)
+        return hoge
 
+class area_and_walk_label:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        d = x["mf_dist"].values
+        w = x["walk"].values
+        d_num = x["mf_dist"].nunique()
+        ans = [0 for i in range(len(d))]
+        for i in range(len(d)):
+            if w[i] <= 10:
+                ans[i] = d[i]
+            else:
+                ans[i] = d[i]+d_num+1
+        return x.assign(walk_dist_label=ans)
+
+
+class aw_label_mean: #方角の家賃平均を追加。分散、中央値もたす。
+    def __init__(self):
+        self.means = {}
+        self.mean_pad = 120000
+        self.stds = {}
+        self.std_pad = 50000
+        self.medians = {}
+        self.medi_pad = 90000
+    def fit(self,x,y):
+        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"walk_dist_label")
+        self.means = means
+        self.mean_pad = mean_pad
+        self.stds = stds
+        self.std_pad = std_pad
+        self.medians = medians
+        self.medi_pad = medi_pad
+        
+        return self
+    def transform(self,x):
+        b_mean,b_std,b_medi = transform_price_stats_(x,"walk_dist_label",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+        hoge = x.copy()
+        hoge = hoge.assign(aw_p_mean=b_mean)
+        hoge = hoge.assign(aw_p_std=b_std)
+        hoge = hoge.assign(aw_p_medi=b_medi)
+        return hoge
+    
 class dummy:
     def __init__(self):
         pass

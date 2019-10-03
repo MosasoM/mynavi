@@ -23,14 +23,9 @@ from sklearn.linear_model import LogisticRegression
 from single import *
 from cross import *
 from stats_fea import *
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
 
-class drop_id:
-    def __init__(self):
-        pass
-    def fit(self,x,y):
-        return self
-    def transform(self,x):
-        return x.drop("id",axis = 1)
 class parse_area_size:
     def __init__(self):
         pass
@@ -200,6 +195,17 @@ class cross_features:
         temp = x["mf_year"].values/x["mf_what_floor"].values
         hoge = hoge.assign(year_floor=temp)
         
+        temp = x["mf_areasize"].values*x["mf_what_floor"].values
+        hoge = hoge.assign(area_fot_floor = temp)
+        
+#         temp = x["mf_areasize"].values*x["mf_height_bld"].values
+#         hoge = hoge.assign(area_fot_floor = temp)
+#         temp = x["walk"].values/x["mf_what_floor"].values
+#         hoge = hoge.assign(walk_floor = temp)
+
+#         temp = x["walk"].values/x["mf_areasize"].values
+#         hoge = hoge.assign(walk_floor = temp)  ちょっとした悪化。後から復活してもいいかもくらいのレベル
+        
         return hoge
 
             
@@ -304,7 +310,7 @@ class add_mean_walk_price: #方角の家賃平均を追加。分散、中央値�
     def transform(self,x):
         b_mean,b_std,b_medi = transform_price_stats_(x,"walk",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
         hoge = x.copy()
-        hoge = hoge.assign(strct_p_mean=b_mean)
+        hoge = hoge.assign(strct_p_mean=b_mean) # アサインの名前間違い
         hoge = hoge.assign(strct_p_std=b_std)
         hoge = hoge.assign(strct_p_medi=b_medi)
         return hoge
@@ -330,7 +336,7 @@ class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央�
     def transform(self,x):
         b_mean,b_std,b_medi = transform_price_stats_(x,"moyori",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
         hoge = x.copy()
-        hoge = hoge.assign(strct_p_mean=b_mean)
+        hoge = hoge.assign(strct_p_mean=b_mean) #アサインの名前間違い
         hoge = hoge.assign(strct_p_std=b_std)
         hoge = hoge.assign(strct_p_medi=b_medi)
         return hoge
@@ -357,36 +363,36 @@ class add_p1_walk_price: #方角の家賃平均を追加。分散、中央値も
     def transform(self,x):
         b_mean,b_std,b_medi = transform_price_stats_(x,"park0",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
         hoge = x.copy()
-        hoge = hoge.assign(strct_p_mean=b_mean)
+        hoge = hoge.assign(strct_p_mean=b_mean) #アサインの名前間違い
         hoge = hoge.assign(strct_p_std=b_std)
         hoge = hoge.assign(strct_p_medi=b_medi)
         return hoge
     
-class add_rldk_price: #方角の家賃平均を追加。分散、中央値もたす。
-    def __init__(self):
-        self.means = {}
-        self.mean_pad = 120000
-        self.stds = {}
-        self.std_pad = 50000
-        self.medians = {}
-        self.medi_pad = 90000
-    def fit(self,x,y):
-        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"rldks_set")
-        self.means = means
-        self.mean_pad = mean_pad
-        self.stds = stds
-        self.std_pad = std_pad
-        self.medians = medians
-        self.medi_pad = medi_pad
+# class add_rldk_price: #方角の家賃平均を追加。分散、中央値もたす。
+#     def __init__(self):
+#         self.means = {}
+#         self.mean_pad = 120000
+#         self.stds = {}
+#         self.std_pad = 50000
+#         self.medians = {}
+#         self.medi_pad = 90000
+#     def fit(self,x,y):
+#         means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"rldks_set")
+#         self.means = means
+#         self.mean_pad = mean_pad
+#         self.stds = stds
+#         self.std_pad = std_pad
+#         self.medians = medians
+#         self.medi_pad = medi_pad
         
-        return self
-    def transform(self,x):
-        b_mean,b_std,b_medi = transform_price_stats_(x,"rldks_set",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
-        hoge = x.copy()
-        hoge = hoge.assign(strct_p_mean=b_mean)
-        hoge = hoge.assign(strct_p_std=b_std)
-        hoge = hoge.assign(strct_p_medi=b_medi)
-        return hoge
+#         return self
+#     def transform(self,x):
+#         b_mean,b_std,b_medi = transform_price_stats_(x,"rldks_set",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+#         hoge = x.copy()
+#         hoge = hoge.assign(strct_p_mean=b_mean)　　アサインの名前間違い
+#         hoge = hoge.assign(strct_p_std=b_std)
+#         hoge = hoge.assign(strct_p_medi=b_medi)
+#         return hoge
 
 class train_encoder:
     def __init__(self):
@@ -504,26 +510,19 @@ class parking_encoder:
         for i in range(len(temp)):
             if temp[i]!=temp[i] or d[i][1] == 1:
                 continue
-#             cost = 0
             dist = 0
             m = pat.search(temp[i])
             if m:
                 kinrin[i] = 1
                 txt = m[0]
-#                 cost = p2.search(txt)[0]
-#                 cost = p3.sub("",cost)
-#                 cost = int(cost[:-1])
                 dist = p4.search(txt)[0]
                 dist = int(dist[2:-1])
             else:
                 m = pat2.search(temp[i])
                 if m:
                     kinrin[i] = 1
-#                     cost = 20000
                     dist = 200
-#             parking_cost[i] = cost
             parking_dist[i] = dist
-#         hoge = hoge.assign(p_cost=parking_cost)
         hoge = hoge.assign(p_dist=parking_dist)
         hoge = hoge.assign(kinrin=kinrin)
         
@@ -638,12 +637,19 @@ class parse_contract_time:
 class fac_encoder:
     def __init__(self):
         self.keys = {'エアコン付': 0, 'シューズボックス': 1, 'バルコニー': 2, 'フローリング': 3,
-                     '室内洗濯機置場': 4, '敷地内ごみ置き場': 5, 'エレベーター': 6, '公営水道': 7,
-                     '下水': 8, '都市ガス': 9, 'タイル張り': 10, 'ウォークインクローゼット': 11, '2面採光': 12,
-                     '24時間換気システム': 13, '3面採光': 14, 'ペアガラス': 15, '専用庭': 16, '水道その他': 17,
-                     '冷房': 18, 'クッションフロア': 19, '床暖房': 20, 'プロパンガス': 21, 'ロフト付き': 22,
-                     '出窓': 23, 'トランクルーム': 24, 'オール電化': 25, 'ルーフバルコニー': 26, '室外洗濯機置場': 27,
-                     '床下収納': 28, 'バリアフリー': 29, '防音室': 30, '二重サッシ': 31, '洗濯機置場なし': 32}
+                '室内洗濯機置場': 4, '敷地内ごみ置き場': 5, 'エレベーター': 6, '都市ガス': 7, 'タイル張り': 8,
+                 'ウォークインクローゼット': 9, '2面採光': 10,
+                '24時間換気システム': 11, '3面採光': 12, 'ペアガラス': 13, '専用庭': 14,
+                '冷房': 0, 'クッションフロア': 15, '床暖房': 16, 'プロパンガス': 17, 'ロフト付き': 18,
+                '出窓': 19, 'トランクルーム': 20, 'オール電化': 21, 'ルーフバルコニー': 22, '室外洗濯機置場': 23,
+                '床下収納': 24, 'バリアフリー': 25, '防音室': 26, '二重サッシ': 27, '洗濯機置場なし': 28}
+#         self.keys = {'洗濯機置場なし': 0, 'シューズボックス': 1, 'バルコニー': 2, 'フローリング': 3,
+#         '室内洗濯機置場': 4, '敷地内ごみ置き場': 5, 'エレベーター': 6, '都市ガス': 7, 'タイル張り': 8,
+#             'ウォークインクローゼット': 9, '2面採光': 10,
+#         '24時間換気システム': 11, '3面採光': 12, 'ペアガラス': 13, '専用庭': 14,
+#         'クッションフロア': 15, '床暖房': 16, 'プロパンガス': 17, 'ロフト付き': 18,
+#         '出窓': 19, 'トランクルーム': 20, 'オール電化': 21, 'ルーフバルコニー': 22, '室外洗濯機置場': 23,
+#         '床下収納': 24, 'バリアフリー': 25, '防音室': 26, '二重サッシ': 27,}
     def fit(self,x,y):
         return self
     def transform(self,x):
@@ -723,9 +729,16 @@ class bath_encoder:
     
 class kitchin_encoder:
     def __init__(self):
-        self.keys = {'ガスコンロ': 0, 'コンロ2口': 1, 'システムキッチン': 2, '給湯': 3, '独立キッチン': 4,
-                     'コンロ3口': 5, 'IHコンロ': 6, 'コンロ1口': 7, '冷蔵庫あり': 8, 'コンロ設置可': 9,
-                     'カウンターキッチン': 10, 'L字キッチン': 11, '電気コンロ': 12, 'コンロ4口以上': 13}
+        # self.keys = {'ガスコンロ': 0, 'コンロ2口': 1, 'システムキッチン': 2, '給湯': 3, '独立キッチン': 4,
+        #              'コンロ3口': 5, 'IHコンロ': 6, 'コンロ1口': 7, '冷蔵庫あり': 8, 'コンロ設置可': 9,
+        #              'カウンターキッチン': 10, 'L字キッチン': 11, '電気コンロ': 12, 'コンロ4口以上': 13}
+        self.keys = {
+            'ガスコンロ':0, 'コンロ設置可（コンロ1口）':1, 'コンロ設置可（コンロ3口）':2, '給湯':3,
+             'コンロ設置可（コンロ2口）':4, 'コンロ4口以上':5, 'L字キッチン':6, '電気コンロ':7,
+              '冷蔵庫あり':8, 'コンロ設置可（コンロ4口以上）':9, 'IHコンロ':10, 'コンロ3口':11,
+               '独立キッチン':12, 'カウンターキッチン':13, 'コンロ1口':14, 'コンロ設置可（口数不明）':15,
+                'コンロ2口':16, 'システムキッチン':17
+        }
     def fit(self,x,y):
         return self
     def transform(self,x):
@@ -821,7 +834,52 @@ class env_encoder:
 
         
         return hoge
-
+    
+class k_means_label:
+    def __init__(self,k = 5):
+        self.kmeans = KMeans(n_clusters=k)
+        self.scale = StandardScaler()
+    
+    def fit(self,x,y):
+        data = x[["mf_areasize","mf_year","mf_what_floor","mf_height_bld","walk"]].values
+        self.scale.fit(data)
+        data = self.scale.transform(data)
+        self.kmeans.fit(data)
+        return self
+    
+    def transform(self,x):
+        data = x[["mf_areasize","mf_year","mf_what_floor","mf_height_bld","walk"]].values
+        data = self.scale.transform(data)
+        pred = self.kmeans.predict(data)
+        return x.assign(clust_label=pred)
+    
+    
+class add_clust_price: #方角の家賃平均を追加。分散、中央値もたす。
+    def __init__(self):
+        self.means = {}
+        self.mean_pad = 120000
+        self.stds = {}
+        self.std_pad = 50000
+        self.medians = {}
+        self.medi_pad = 90000
+    def fit(self,x,y):
+        means,mean_pad,stds,std_pad,medians,medi_pad = fit_price_stats_(x,y,"clust_label")
+        self.means = means
+        self.mean_pad = mean_pad
+        self.stds = stds
+        self.std_pad = std_pad
+        self.medians = medians
+        self.medi_pad = medi_pad
+        
+        return self
+    def transform(self,x):
+        b_mean,b_std,b_medi = transform_price_stats_(x,"clust_label",self.means,self.mean_pad,self.stds,self.std_pad,self.medians,self.medi_pad)
+        hoge = x.copy()
+        hoge = hoge.assign(clust_p_mean=b_mean)
+        hoge = hoge.assign(clust_p_std=b_std)
+        hoge = hoge.assign(clust_p_medi=b_medi)
+        return hoge
+    
 class dummy:
     def __init__(self):
         pass

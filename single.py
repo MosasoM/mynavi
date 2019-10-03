@@ -109,7 +109,7 @@ def train_and_walk_(x):
     train = ["" for i in range(len(tmp))]
     oth_train = [["" for i in range(len(tmp))] for j in range(2)]
     avgwalk = [0 for i in range(len(tmp))]
-    oth_walk = [[100 for i in range(len(tmp))] for j in range(3)]
+    oth_walk = [[30 for i in range(len(tmp))] for j in range(3)]
     for i in range(len(tmp)):
         train[i] = re.match(r".+?(線|ライン|ライナー|プレス|かもめ)",tmp[i])[0]
         avg = 0
