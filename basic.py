@@ -158,6 +158,7 @@ class train_encoder:
         return self
     def transform(self,x):
         temp = [[30 for i in range(len(self.train_dic))] for j in range(len(x.values))]
+        onehot = [[0 for i in range(len(self.train_dic))] for j in range(len(x.values))]
         moyori = [0 for i in range(len(x.values))]
         fuga = x["train"].values
         piyo = x["walk"].values
@@ -166,13 +167,12 @@ class train_encoder:
             key = fuga[i]
             if key in self.train_dic:
                 moyori[i] = train_dic[key]+1
-
-        
         
         for i in range(len(x["train"].values)):
             key = fuga[i]
             if key in self.train_dic:
                 temp[i][train_dic[key]] = piyo[i]
+                onehot[i][train_dic[key]] = 1
            
                 
         fuga = x["train2"].values
@@ -181,6 +181,7 @@ class train_encoder:
             key = fuga[i]
             if key in self.train_dic:
                 temp[i][train_dic[key]] = min(piyo[i],temp[i][train_dic[key]])
+                onehot[i][train_dic[key]] = 1
                 
         fuga = x["train3"].values
         piyo = x["walk3"].values
@@ -188,6 +189,8 @@ class train_encoder:
             key = fuga[i]
             if key in self.train_dic:
                 temp[i][train_dic[key]] = min(piyo[i],temp[i][train_dic[key]])
+                onehot[i][train_dic[key]] = 1
+        
         temp = pd.DataFrame(temp)
         col = []
         c_num = len(temp.columns)
@@ -195,6 +198,15 @@ class train_encoder:
             col.append("train_walk_"+str(i))
         temp.columns = col
         hoge = x.copy()
+        temp.index = hoge.index
+        hoge = pd.concat([hoge,temp],axis = 1)
+
+        temp = pd.DataFrame(onehot)
+        col = []
+        c_num = len(temp.columns)
+        for i in range(c_num):
+            col.append("train_OH_"+str(i))
+        temp.columns = col
         temp.index = hoge.index
         hoge = pd.concat([hoge,temp],axis = 1)
         

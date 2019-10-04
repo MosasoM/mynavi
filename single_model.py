@@ -51,6 +51,7 @@ class my_preprocess:
             ("NMF_kit",NMF_kit(seed)),
             ("NMF_env_dist",NMF_env_dist(seed)),
             ("NMF_env",NMF_env(seed)),
+            ("NMF_trainOH",NMF_trainOH(seed)),
 ]
 
 
@@ -113,7 +114,7 @@ def check_model(comment,train_x,train_y):
     f.write(comment)
     f.write("\n")
     
-    easy = my_model(seed)
+    easy = my_model()
     easy.fit(train_x,train_y)
     f = open("./feature_importances/"+name+"_ftxt","w")
     rm = easy.models[0]
