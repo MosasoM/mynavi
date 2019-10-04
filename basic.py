@@ -1,5 +1,6 @@
 from single import *
 from cross import *
+import math
 
 class parse_area_size:
     def __init__(self):
@@ -528,7 +529,7 @@ class env_encoder:
         c_num = len(setubi.columns)
         col = []
         for i in range(c_num):
-            col.append("env"+str(i))
+            col.append("envv"+str(i))
         setubi.columns = col
         hoge = x.drop("周辺環境",axis = 1)
         setubi.index = hoge.index
@@ -756,3 +757,60 @@ class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央�
         temp = np.array(b_max)-np.array(b_min)
         hoge = hoge.assign(moyo_mm= temp)
         return hoge
+
+#  * @param float $lat1 緯度１
+#  * @param float $lon1 経度１
+#  * @param float $lat2 緯度２
+#  * @param float $lon2 経度２
+
+def google_distance(lat1, lon1, lat2, lon2):
+    radLat1 = math.radians(lat1) 
+    radLon1 = math.radians(lon1) 
+    radLat2 = math.radians(lat2) 
+    radLon2 = math.radians(lon2)
+
+    r = 6378137.0
+
+    averageLat = (radLat1 - radLat2) / 2
+    averageLon = (radLon1 - radLon2) / 2
+    return r * 2 * math.asin(math.sqrt(pow(math.sin(averageLat), 2) + math.cos(radLat1) * math.cos(radLat2) * pow(math.sin(averageLon), 2)))
+    
+
+class dist_to_main_station:
+    def __init__(self):
+        """
+        池袋駅 座標(WGS84)　緯度: 35.729503 経度: 139.7109
+        新宿駅 座標(WGS84)　緯度: 35.689738 経度: 139.700391
+        渋谷駅 座標(WGS84)　緯度: 35.658034 経度: 139.701636
+        東京駅 座標(WGS84)　緯度: 35.681236 経度: 139.767125
+        上野駅 座標(WGS84)　緯度: 35.714167 経度: 139.777409
+        品川駅 座標(WGS84)　緯度: 35.628471 経度: 139.73876
+        新橋駅 座標(WGS84)　緯度: 35.666379 経度: 139.75834
+        """
+        self.main_st = [[35.729503,139.7109],
+                        [35.689738,139.700391],
+                        [35.658034,139.701636],
+                        [35.681236,139.767125],
+                        [35.714167,139.777409],
+                        [35.628471,139.73876],
+                        [35.666379,139.75834]]
+
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        ido = x["ido"].values
+        keido = x["keido"].values
+        dist = [[10000 for i in range(len(self.main_st))] for j in range(len(ido))]
+        for i in range(len(ido)):
+            for j in range(len(self.main_st)):
+                to_ido = self.main_st[j][0]
+                to_keido = self.main_st[j][1]
+                d = google_distance(ido[i],keido[i],to_ido,to_keido)
+                dist[i][j] = d
+        dist = pd.DataFrame(dist)
+        dist.index = x.index
+        col = []
+        for i in range(len(self.main_st)):
+            col.append("dist_main_st"+str(i))
+        dist.columns = col
+        return pd.concat([x,dist],axis=1)

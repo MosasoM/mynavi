@@ -14,13 +14,14 @@ from basic import *
 
 
 class my_preprocess:
-    def __init__(self):
+    def __init__(self,seed):
         self.steps = [
             ("parse_area",parse_area_size()),
             ("parse_room",parse_rooms()),
             ("parse_old",parse_how_old()),
             ("height_enc",height_encoder()),
             ("ex_dist",extract_district()),
+            ("dist_price_per_area",dist_and_price_per_area()),
             ("label_dist",district_encoder()),
             ("acc_ext",access_extractor()),
             ("tr_enc",train_encoder()),
@@ -40,8 +41,17 @@ class my_preprocess:
             ("mean_moyori",add_moyori_walk_price()),
             ("cross",cross_features()),
             ("dist2main_st",dist_to_main_station()),
-            ("drop_unnecessary",drop_unnecessary())
-        ]
+            ("short_main_st",shortest2main_st()),
+            ("drop_unnecessary",drop_unnecessary()),
+            ("area_predictor",area_pre_predictor(seed)),
+            ("area_pre_price_predictor",area_per_price_predictor(seed)),
+            ("knn_pred",Knn_regression()),
+            ("NMF_train_walk",NMF_train_walk(seed)),
+            ("NMF_fac",NMF_fac(seed)),
+            ("NMF_kit",NMF_kit(seed)),
+            ("NMF_env_dist",NMF_env_dist(seed)),
+            ("NMF_env",NMF_env(seed)),
+]
 
 
 def pre_checker(x,y):
@@ -57,21 +67,18 @@ def pre_checker(x,y):
       
         
 class my_model:
-    def __init__(self,is_log=False):
-        rp = my_preprocess()
+    def __init__(self,seed=7777):
+        rp = my_preprocess(seed)
         rpstep = rp.steps
         rich_step_xgb = [
             ("pre",Pipeline(steps=rpstep)),
-            ("xgb",xgb.XGBRegressor(random_state=8888,max_depth=8))
+            ("xgb",xgb.XGBRegressor(random_state=seed,max_depth=8))
         ]
         self.models = [
             Pipeline(steps=rich_step_xgb),
         ]
-        self.is_log=is_log
     def fit(self,x,y):
         tar = y
-        if self.is_log:
-            tar = np.log(y)
         for model in self.models:
             model.fit(x,tar)
         return self
@@ -82,8 +89,6 @@ class my_model:
             temp += np.array(pred)
         temp = temp/len(self.models)
         predict = temp
-        if self.is_log:
-            predict = np.exp(predict)
         return predict
     
     def get_params(self,deep=True):
@@ -108,7 +113,7 @@ def check_model(comment,train_x,train_y):
     f.write(comment)
     f.write("\n")
     
-    easy = my_model()
+    easy = my_model(seed)
     easy.fit(train_x,train_y)
     f = open("./feature_importances/"+name+"_ftxt","w")
     rm = easy.models[0]
@@ -119,15 +124,21 @@ def check_model(comment,train_x,train_y):
     f.close()
 
     
-def commit(model,train_x,train_y,test,name):
-    model.fit(train_x,train_y)
-    pred = model.predict(test)
+def commit(train_x,train_y,test,name,seeds):
+    pred_all = []
+    for i in range(len(seeds)):
+        model = my_model(seeds[i])
+        model.fit(train_x,train_y)
+        pred = model.predict(test)
+        pred_all.append(pred)
+        pickle.dump(model, open(name+"seed_"+str(seeds[i])+".pkl", "wb"))
+    pred_all = np.array(pred_all)
+    pred = np.mean(pred_all,axis=0)
     pred = pd.DataFrame(pred)
     pred.columns=["pred"]
     pred.index = test.index
     pred = pd.concat([test["id"],pred],axis=1)
     pred.to_csv(name+".csv",header=False,index=False)
-    pickle.dump(model, open(name+".pkl", "wb"))
 
 
 
