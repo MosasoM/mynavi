@@ -17,42 +17,54 @@ class my_preprocess:
     def __init__(self,seed):
         self.steps = [
             # ("ido_xy",ido_keido2xy()),
-            ("parse_area",parse_area_size()),
-            ("parse_room",parse_rooms()),
-            ("parse_old",parse_how_old()),
-            ("height_enc",height_encoder()),
-            ("ex_dist",extract_district()),
-            ("dist_price_per_area",dist_and_price_per_area()),
-            ("label_dist",district_encoder()),
-            ("acc_ext",access_extractor()),
-            ("tr_enc",train_encoder()),
-            ("parking_encoder",parking_encoder()),
+            ("ex_dist",extract_district()), # a:districr, city
+            ("label_dist",district_encoder()), #a: mf_dist, mf_city
+            ("district_onehot",district_OH()),
+            ("acc_ext",access_extractor()), #train,walk,avgwalk
+            ("tr_enc",train_encoder()), #train_walk,train_OH,train_freq,moyori
+            ("parse_room",parse_rooms()), #a: rldks
+            ("parse_old",parse_how_old()), #a:mf_year
             ("dir_enc",direction_encoder()),
-            ("info_enc",info_encoder()),
-            ("m_d_p",add_mean_dist_price()),
-            ("p_con_time",parse_contract_time()),
-            ("fac",fac_encoder()),
-            ("bath",bath_encoder()),
-            ("kit",kitchin_encoder()),
-            ("env",env_encoder()),
+            ("parse_area",parse_area_size()), #a:mf_areasize, mf_areasize_sq
+            ("height_enc",height_encoder()), #a:mf_what_floor, mf_height_bld
+            ("bath",bath_encoder()), #bath
+            ("kit",kitchin_encoder()), #kit
+            ("info_enc",info_encoder()), #info
+            ("fac",fac_encoder()), #fac
+            ("parking_encoder",parking_encoder()), #park p_dist,kinrin
+            ("env",env_encoder()), #envv,env_dist
+            ("structure_enc",structure_label_encoder()), #mf_structure
+            ("p_con_time",parse_contract_time()), #isteiki,cont_year,cont_month
+
+
+            ("drop_unnecessary",drop_object_col()),
+
+            ("cross",cross_features()),
+
+            ("m_d_p",add_mean_dist_price()), #dist_ mean,medi,max,min,mm
             ("angle_stat",add_mean_angle_price()),
-            ("structure_enc",structure_label_encoder()),
             ("mean_struct",add_mean_structure_price()),
             ("mean_moyori",add_moyori_walk_price()),
-            ("cross",cross_features()),
+            ("dist_price_per_area",dist_and_price_per_area()), 
+
             ("dist2main_st",dist_to_main_station()),
+            # ("dist2main_st",dist_main_st_xy()),
             ("short_main_st",shortest2main_st()),
-            ("drop_unnecessary",drop_unnecessary()),
+
+
+
             ("area_predictor",area_pre_predictor(seed)),
             ("knn_pred",Knn_regression()),
             ("area_pre_price_predictor",area_per_price_predictor(seed)),
+            # ("kmeans_label",kmeans_label()),
+
             ("NMF_train_walk",NMF_train_walk(seed)),
             ("NMF_fac",NMF_fac(seed)),
             ("NMF_kit",NMF_kit(seed)),
             ("NMF_env_dist",NMF_env_dist(seed)),
             ("NMF_env",NMF_env(seed)),
             ("NMF_trainOH",NMF_trainOH(seed)),
-            # ("seppen",Seppen_pred(seed)),
+            ("NMF_distOH",NMF_dist_OH(seed)),
 ]
 
 

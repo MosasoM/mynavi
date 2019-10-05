@@ -92,20 +92,43 @@ class district_encoder:
     def transform(self,x):
         temp = x["district"].values
         buf = [0 for i in range(len(temp))]
-        hoge = x.drop("district",axis=1)
         for i in range(len(temp)):
             if temp[i] in self.dist_label:
                 buf[i] = self.dist_label[temp[i]]
-        hoge = hoge.assign(mf_dist=buf)
+        hoge = x.assign(mf_dist=buf)
         
         buf = [0 for i in range(len(temp))]
         temp = x["city"].values
-        hoge = hoge.drop("city",axis=1)
         for i in range(len(temp)):
             if temp[i] in self.city_label:
                 buf[i] = self.city_label[temp[i]]
         hoge = hoge.assign(mf_city=buf)
         return hoge
+
+class district_OH:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        n_dist = x["district"].nunique()
+        buf = [[0 for i in range(n_dist+1)] for j in range(len(x.values))]
+        data = x["mf_dist"].values
+        for i in range(len(x.values)):
+            buf[i][data[i]] = 1
+        
+        temp = pd.DataFrame(buf)
+        col = []
+        c_num = len(temp.columns)
+        for i in range(c_num):
+            col.append("dist_OH"+str(i))
+        temp.columns = col
+        hoge = x.copy()
+        temp.index = hoge.index
+        hoge = pd.concat([hoge,temp],axis = 1)
+        return hoge
+        
+
 
 class direction_encoder:
     def __init__(self):
@@ -322,11 +345,11 @@ class info_encoder:
 
 
         
-class drop_unnecessary:
+class drop_object_col:
     def __init__(self):
         self.to_drop = []
         self.valid = ['id', '賃料', '所在地', 'アクセス', '間取り', '築年数', '方角', '面積', '所在階', 'バス・トイレ',
-       'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train"]
+       'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train","train2","train3","district","city"]
         self.pat = []
     def fit(self,x,y):
         return self
@@ -742,18 +765,6 @@ class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央�
 #  * @param float $lat2 緯度２
 #  * @param float $lon2 経度２
 
-def google_distance(lat1, lon1, lat2, lon2):
-    radLat1 = math.radians(lat1) 
-    radLon1 = math.radians(lon1) 
-    radLat2 = math.radians(lat2) 
-    radLon2 = math.radians(lon2)
-
-    r = 6378137.0
-
-    averageLat = (radLat1 - radLat2) / 2
-    averageLon = (radLon1 - radLon2) / 2
-    return r * 2 * math.asin(math.sqrt(pow(math.sin(averageLat), 2) + math.cos(radLat1) * math.cos(radLat2) * pow(math.sin(averageLon), 2)))
-    
 
 class dist_to_main_station:
     def __init__(self):
@@ -772,7 +783,10 @@ class dist_to_main_station:
                         [35.681236,139.767125],
                         [35.714167,139.777409],
                         [35.628471,139.73876],
-                        [35.666379,139.75834]]
+                        [35.666379,139.75834],
+                        [35.698383,139.773072], #秋葉原
+                        [35.619851,139.728189], #大崎
+    ]
 
     def fit(self,x,y):
         return self
@@ -793,6 +807,40 @@ class dist_to_main_station:
             col.append("dist_main_st"+str(i))
         dist.columns = col
         return pd.concat([x,dist],axis=1)
+
+class dist_main_st_xy:
+    def __init__(self):
+        self.main_st=[
+            [5356.316694421228,-5086.200368688708],
+            [945.2816486349329,-6039.860013247055],
+            [-2572.0960420942865,-5929.523925670376],
+            [0,0],
+            [3653.4900027844124,930.484783042947],
+            [-5853.458855937235,-2569.1780450133815],
+            [-1648.2278135409579,-795.3311901756207],
+            [1902.3416120409966,538.1839664626818],
+            [-6809.442372417543,-3527.031711206944],
+        ]
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        ido = x["ido"].values
+        keido = x["keido"].values
+        dist = [[10000 for i in range(len(self.main_st))] for j in range(len(ido))]
+        for i in range(len(ido)):
+            for j in range(len(self.main_st)):
+                to_ido = self.main_st[j][0]
+                to_keido = self.main_st[j][1]
+                d = np.sqrt((to_ido-ido[i])**2+(to_keido-keido[i])**2)
+                dist[i][j] = d
+        dist = pd.DataFrame(dist)
+        dist.index = x.index
+        col = []
+        for i in range(len(self.main_st)):
+            col.append("dist_main_st"+str(i))
+        dist.columns = col
+        return pd.concat([x,dist],axis=1)
+
 
 class cross_features:
     def __init__(self):
@@ -923,6 +971,31 @@ class NMF_train_walk:
         col = []
         for i in range(n_col):
             col.append("tr_wa_nmf"+str(i)) #ここを変更する必要
+        p.columns = col
+        return pd.concat([hoge,p],axis = 1)
+
+
+class NMF_dist_OH:
+    def __init__(self,rand_s):
+        self.cols = []
+        self.model = NMF(n_components=20, init='nndsvd', random_state=rand_s)
+    def fit(self,x,y):
+        for col in x.columns:
+            if "dist_OH" in col: #ここと
+                self.cols.append(col)
+        ex_var = x[self.cols]
+        self.model.fit(ex_var)
+        return self
+    def transform(self,x):
+        ex_var = x[self.cols]
+        p = self.model.transform(ex_var)
+        hoge = x.drop(self.cols,axis = 1)
+        p = pd.DataFrame(p)
+        p.index = x.index
+        n_col = len(p.columns)
+        col = []
+        for i in range(n_col):
+            col.append("dist_OH_nmf"+str(i)) #ここを変更する必要
         p.columns = col
         return pd.concat([hoge,p],axis = 1)
 
@@ -1084,16 +1157,16 @@ class dist_and_price_per_area:
         ty.columns=["p_per_a"]
         ty.index = x.index
         temptemp = pd.concat([x,ty],axis = 1)
-        label = temptemp.groupby("district").mean().index.values
+        label = temptemp.groupby("mf_dist").mean().index.values
 
-        temp = temptemp.groupby("district").mean()["p_per_a"].values
+        temp = temptemp.groupby("mf_dist").mean()["p_per_a"].values
         for i in range(len(label)):
             self.means[label[i]] = temp[i]
         self.mean_pad = round(np.mean(temp))
         return self
     def transform(self,x):
         buf1 = [0 for i in range(len(x.values))]
-        temp = x["district"].values
+        temp = x["mf_dist"].values
         for i in range(len(x.values)):
             if temp[i] in self.means:
                 buf1[i] = self.means[temp[i]]

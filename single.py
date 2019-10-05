@@ -1,6 +1,7 @@
 import re
 import numpy as np
 import pandas as pd
+import math
 
 def area_size_(x):
     temp = x["面積"].values
@@ -148,4 +149,16 @@ def make_freq_elem(x_column_not_value,elems):
         temp = x_column_not_value.str.contains(key).sum()
         ans[key] = temp
     return ans
+
+def google_distance(lat1, lon1, lat2, lon2):
+    radLat1 = math.radians(lat1) 
+    radLon1 = math.radians(lon1) 
+    radLat2 = math.radians(lat2) 
+    radLon2 = math.radians(lon2)
+
+    r = 6378137.0
+
+    averageLat = (radLat1 - radLat2) / 2
+    averageLon = (radLon1 - radLon2) / 2
+    return r * 2 * math.asin(math.sqrt(pow(math.sin(averageLat), 2) + math.cos(radLat1) * math.cos(radLat2) * pow(math.sin(averageLon), 2)))
     

@@ -103,31 +103,34 @@ class ido_keido2xy:
             a,b = ido_calc_xy(ido[i],keido[i], 35.681236,139.767125)
             idox[i] = a
             idoy[i] = b
-        hoge = x.assign(ido_x=idox)
-        hoge = hoge.assign(ido_y=idoy)
+        hoge = x.drop(["ido","keido"],axis=1)
+        hoge = hoge.assign(ido=idox)
+        hoge = hoge.assign(keido=idoy)
         return hoge
 
-
-class Seppen_pred:
-    def __init__(self,rand_s):
-        self.model1 = xgb.XGBRegressor(random_state=rand_s)
-        self.model2 = xgb.XGBRegressor(random_state=rand_s)
+class kmeans_label:
+    def __init__(self):
+        self.model = KMeans(n_clusters=30)
     def fit(self,x,y):
-        tar1 = x["avg_cross_pred"].values-np.array(y)
-        tar2 = x["knn_area_price"].values-np.array(y)
-        ex1 = x.drop(["avg_cross_pred","knn_area_price","avg_pred","knn_pred"],axis=1)
-        ex2 = x.drop(["avg_cross_pred","knn_area_price","avg_pred","knn_pred"],axis=1)
-        self.model1.fit(ex1,tar1)
-        self.model2.fit(ex2,tar2)
+        data = x[["ido","keido"]].values
+        self.model.fit(data)
         return self
     def transform(self,x):
-        ex1 = x.drop(["avg_cross_pred","knn_area_price","avg_pred","knn_pred"],axis=1)
-        ex2 = x.drop(["avg_cross_pred","knn_area_price","avg_pred","knn_pred"],axis=1)
-        pred1 = self.model1.predict(ex1)
-        pred2 = self.model2.predict(ex2)
-        hoge = x.assign(diff_pred1=pred1)
-        hoge = hoge.assign(diff_pred2=pred2)
+        pred = self.model.predict(x[["ido","keido"]].values)
+        dist2cent = [0 for i in range(len(pred))]
+        ido = x["ido"].values
+        keido = x["keido"].values
+        centers = self.model.cluster_centers_
+        for i in range(len(pred)):
+            cen = centers[pred[i]]
+            d = google_distance(ido[i], keido[i], cen[0], cen[1])
+            dist2cent[i] = d
+        hoge = x.assign(kemans_label=pred)
+        hoge = hoge.assign(dist2cent=dist2cent)
         return hoge
+
+
+
 
 
 
