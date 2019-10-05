@@ -770,23 +770,7 @@ class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央�
         hoge = hoge.assign(moyo_mm= temp)
         return hoge
 
-#  * @param float $lat1 緯度１
-#  * @param float $lon1 経度１
-#  * @param float $lat2 緯度２
-#  * @param float $lon2 経度２
 
-def google_distance(lat1, lon1, lat2, lon2):
-    radLat1 = math.radians(lat1) 
-    radLon1 = math.radians(lon1) 
-    radLat2 = math.radians(lat2) 
-    radLon2 = math.radians(lon2)
-
-    r = 6378137.0
-
-    averageLat = (radLat1 - radLat2) / 2
-    averageLon = (radLon1 - radLon2) / 2
-    return r * 2 * math.asin(math.sqrt(pow(math.sin(averageLat), 2) + math.cos(radLat1) * math.cos(radLat2) * pow(math.sin(averageLon), 2)))
-    
 
 class dist_to_main_station:
     def __init__(self):

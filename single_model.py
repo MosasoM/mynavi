@@ -52,6 +52,8 @@ class my_preprocess:
             ("NMF_env_dist",NMF_env_dist(seed)),
             ("NMF_env",NMF_env(seed)),
             ("NMF_trainOH",NMF_trainOH(seed)),
+            # ("pre_pred",pre_predict(seed)), # additional
+            ("house_in_1km",homes_in_nkm()), #additional
 ]
 
 

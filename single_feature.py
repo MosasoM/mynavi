@@ -327,6 +327,41 @@ class dist_and_price_per_area:
         hoge = hoge.assign(p_per_a_d_c_a=temp)
         return hoge
 
+class pre_predict:
+    def __init__(self,rand_s):
+        self.model1 = xgb.XGBRegressor(random_state=rand_s)
+        self.model2 = xgb.XGBRegressor(random_state=rand_s)
+    def fit(self,x,y):
+        self.model1.fit(x,y)
+        pred = self.model1.predict(x)
+        diff = np.array(pred)-np.array(y)
+        self.model2.fit(x,diff)
+        return self
+    def transform(self,x):
+        pred = self.model2.predict(x)
+        return x.assign(pre_diff = pred)
+
+
+class homes_in_nkm:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        ido = x["ido"].values
+        keido = x["keido"].values
+        buf = [0 for i in range(len(ido))]
+        for i in range(len(ido)):
+            temp = 0
+            for j in range(len(ido)):
+                if i == j:
+                    continue
+                d = google_distance(ido[i],keido[i],ido[j],keido[j]):
+                if d <= 1000:
+                    temp += 1
+            buf[i] = temp
+        return x.assign(house_in_1km=buf)
+
 
 
 
