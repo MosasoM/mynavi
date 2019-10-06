@@ -101,14 +101,13 @@ class area_per_price_predictor:
     def transform(self,x):
         ex_var = x.drop(["mf_area_sq","mf_areasize"],axis = 1)
         pred = self.model.predict(ex_var)
-        hoge = x.assign(pred_area=pred)
-        hoge = hoge.assign(area_diff=hoge["mf_areasize"].values-hoge["pred_area"].values)
+        hoge = x.assign(pred_area_pre_price=pred)
         hoge = hoge.assign(avg_cross_pred = hoge["mf_areasize"].values*np.array(pred))
         return hoge
 
 class Knn_regression:
-    def __init__(self):
-        self.model = KNeighborsRegressor(n_neighbors=30,weights="distance")
+    def __init__(self,k):
+        self.model = KNeighborsRegressor(n_neighbors=k,weights="distance")
     def fit(self,x,y):
         ex_var = x[["ido","keido"]].values
         ex_var = zscore(ex_var)
@@ -123,6 +122,7 @@ class Knn_regression:
         temp = pred*x["mf_areasize"].values
         hoge = hoge.assign(knn_area_price=temp)
         return hoge
+
 
 
 class NMF_train_walk:
@@ -342,24 +342,111 @@ class pre_predict:
         return x.assign(pre_diff = pred)
 
 
+def ido_calc_xy(phi_deg, lambda_deg, phi0_deg, lambda0_deg):
+    """ 緯度経度を平面直角座標に変換する
+    - input:
+        (phi_deg, lambda_deg): 変換したい緯度・経度[度]（分・秒でなく小数であることに注意）
+        (phi0_deg, lambda0_deg): 平面直角座標系原点の緯度・経度[度]（分・秒でなく小数であることに注意）
+    - output:
+        x: 変換後の平面直角座標[m]
+        y: 変換後の平面直角座標[m]
+    """
+    # 緯度経度・平面直角座標系原点をラジアンに直す
+    phi_rad = np.deg2rad(phi_deg)
+    lambda_rad = np.deg2rad(lambda_deg)
+    phi0_rad = np.deg2rad(phi0_deg)
+    lambda0_rad = np.deg2rad(lambda0_deg)
+
+    # 補助関数
+    def A_array(n):
+        A0 = 1 + (n**2)/4. + (n**4)/64.
+        A1 = -     (3./2)*( n - (n**3)/8. - (n**5)/64. ) 
+        A2 =     (15./16)*( n**2 - (n**4)/4. )
+        A3 = -   (35./48)*( n**3 - (5./16)*(n**5) )
+        A4 =   (315./512)*( n**4 )
+        A5 = -(693./1280)*( n**5 )
+        return np.array([A0, A1, A2, A3, A4, A5])
+
+    def alpha_array(n):
+        a0 = np.nan # dummy
+        a1 = (1./2)*n - (2./3)*(n**2) + (5./16)*(n**3) + (41./180)*(n**4) - (127./288)*(n**5)
+        a2 = (13./48)*(n**2) - (3./5)*(n**3) + (557./1440)*(n**4) + (281./630)*(n**5)
+        a3 = (61./240)*(n**3) - (103./140)*(n**4) + (15061./26880)*(n**5)
+        a4 = (49561./161280)*(n**4) - (179./168)*(n**5)
+        a5 = (34729./80640)*(n**5)
+        return np.array([a0, a1, a2, a3, a4, a5])
+
+    # 定数 (a, F: 世界測地系-測地基準系1980（GRS80）楕円体)
+    m0 = 0.9999 
+    a = 6378137.
+    F = 298.257222101
+
+    # (1) n, A_i, alpha_iの計算
+    n = 1. / (2*F - 1)
+    A_array = A_array(n)
+    alpha_array = alpha_array(n)
+
+    # (2), S, Aの計算
+    A_ = ( (m0*a)/(1.+n) )*A_array[0] # [m]
+    S_ = ( (m0*a)/(1.+n) )*( A_array[0]*phi0_rad + np.dot(A_array[1:], np.sin(2*phi0_rad*np.arange(1,6))) ) # [m]
+
+    # (3) lambda_c, lambda_sの計算
+    lambda_c = np.cos(lambda_rad - lambda0_rad)
+    lambda_s = np.sin(lambda_rad - lambda0_rad)
+
+    # (4) t, t_の計算
+    t = np.sinh( np.arctanh(np.sin(phi_rad)) - ((2*np.sqrt(n)) / (1+n))*np.arctanh(((2*np.sqrt(n)) / (1+n)) * np.sin(phi_rad)) )
+    t_ = np.sqrt(1 + t*t)
+
+    # (5) xi', eta'の計算
+    xi2  = np.arctan(t / lambda_c) # [rad]
+    eta2 = np.arctanh(lambda_s / t_)
+
+    # (6) x, yの計算
+    x = A_ * (xi2 + np.sum(np.multiply(alpha_array[1:],
+                                       np.multiply(np.sin(2*xi2*np.arange(1,6)),
+                                                   np.cosh(2*eta2*np.arange(1,6)))))) - S_ # [m]
+    y = A_ * (eta2 + np.sum(np.multiply(alpha_array[1:],
+                                        np.multiply(np.cos(2*xi2*np.arange(1,6)),
+                                                    np.sinh(2*eta2*np.arange(1,6)))))) # [m]
+    # return
+    return x, y # [m]
+
 class homes_in_nkm:
     def __init__(self):
         pass
     def fit(self,x,y):
         return self
     def transform(self,x):
+        r = 500
+        resolution = 50
+        
         ido = x["ido"].values
         keido = x["keido"].values
-        buf = [0 for i in range(len(ido))]
+        pos_x = [0 for i in range(len(ido))]
+        pos_y = [0 for i in range(len(ido))]
+        buf =  [0 for i in range(len(ido))]
         for i in range(len(ido)):
+            a,b = ido_calc_xy(ido[i],keido[i],35.681236,139.767125)
+            pos_x[i] = a
+            pos_y[i] = b
+        grid_num = 40000//resolution
+        bucket = [[0 for i in range(grid_num)] for j in range(grid_num)]
+        around = (2*r)//resolution
+        for i in range(len(ido)):
+            a = int(pos_x[i]//resolution)+grid_num//2
+            b = int(pos_y[i]//resolution)+grid_num//2
+            bucket[a][b] += 1
+        for i in range(len(ido)):
+            a = int(pos_x[i]//resolution)+grid_num//2
+            b = int(pos_y[i]//resolution)+grid_num//2
             temp = 0
-            for j in range(len(ido)):
-                if i == j:
-                    continue
-                d = google_distance(ido[i],keido[i],ido[j],keido[j]):
-                if d <= 1000:
-                    temp += 1
+            for j in range(around+1):
+                for k in range(around+1):
+                    temp += bucket[a+j-around//2][b+k-around//2]
             buf[i] = temp
+
+
         return x.assign(house_in_1km=buf)
 
 

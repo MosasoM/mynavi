@@ -45,15 +45,17 @@ class my_preprocess:
             ("drop_unnecessary",drop_unnecessary()),
             ("area_predictor",area_pre_predictor(seed)),
             ("area_pre_price_predictor",area_per_price_predictor(seed)),
-            ("knn_pred",Knn_regression()),
+            ("knn_pred",Knn_regression(10)),
+            # ("knn_pred2",Knn_regression(200)),#addtional
             ("NMF_train_walk",NMF_train_walk(seed)),
             ("NMF_fac",NMF_fac(seed)),
             ("NMF_kit",NMF_kit(seed)),
             ("NMF_env_dist",NMF_env_dist(seed)),
             ("NMF_env",NMF_env(seed)),
             ("NMF_trainOH",NMF_trainOH(seed)),
+            # ("knn_fac",Knn_fac(30)),
             # ("pre_pred",pre_predict(seed)), # additional
-            ("house_in_1km",homes_in_nkm()), #additional
+            # ("house_in_1km",homes_in_nkm()), #additional
 ]
 
 

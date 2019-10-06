@@ -382,9 +382,9 @@ class parse_contract_time:
                     add_year[i] = int(year)
                     add_month[i] = int(month)
         hoge = hoge.drop(["契約期間"],axis = 1)
-        hoge = hoge.assign(is_teiki=isteiki)
-        hoge = hoge.assign(cont_year= add_year)
-        hoge = hoge.assign(cont_month= add_month)
+        # hoge = hoge.assign(is_teiki=isteiki)
+        # hoge = hoge.assign(cont_year= add_year)
+        # hoge = hoge.assign(cont_month= add_month)
         return hoge
     
 class fac_encoder:
