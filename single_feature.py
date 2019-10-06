@@ -123,6 +123,23 @@ class Knn_regression:
         hoge = hoge.assign(knn_area_price=temp)
         return hoge
 
+class Knn_area:
+    def __init__(self,k):
+        self.model = KNeighborsRegressor(n_neighbors=k,weights="distance")
+    def fit(self,x,y):
+        ex_var = x[["ido","keido"]].values
+        ex_var = zscore(ex_var)
+        ty = x["mf_areasize"].values
+        self.model.fit(ex_var,ty)
+        return self
+    def transform(self,x):
+        ex_var = x[["ido","keido"]].values
+        ex_var = zscore(ex_var)
+        pred = self.model.predict(ex_var)
+        hoge = x.assign(knn_pred_area=pred)
+        hoge = hoge.assign(knn_area_diff = pred-x["mf_areasize"].values)
+        return hoge
+
 
 
 class NMF_train_walk:

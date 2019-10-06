@@ -87,7 +87,7 @@ class district_encoder:
     def transform(self,x):
         temp = x["district"].values
         buf = [0 for i in range(len(temp))]
-        hoge = x.drop("district",axis=1)
+        hoge = x.copy()
         for i in range(len(temp)):
             if temp[i] in self.dist_label:
                 buf[i] = self.dist_label[temp[i]]
@@ -95,7 +95,6 @@ class district_encoder:
         
         buf = [0 for i in range(len(temp))]
         temp = x["city"].values
-        hoge = hoge.drop("city",axis=1)
         for i in range(len(temp)):
             if temp[i] in self.city_label:
                 buf[i] = self.city_label[temp[i]]
@@ -321,7 +320,7 @@ class drop_unnecessary:
     def __init__(self):
         self.to_drop = []
         self.valid = ['id', '賃料', '所在地', 'アクセス', '間取り', '築年数', '方角', '面積', '所在階', 'バス・トイレ',
-       'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train"]
+       'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train","city","district"]
         self.pat = []
     def fit(self,x,y):
         return self
@@ -382,9 +381,9 @@ class parse_contract_time:
                     add_year[i] = int(year)
                     add_month[i] = int(month)
         hoge = hoge.drop(["契約期間"],axis = 1)
-        # hoge = hoge.assign(is_teiki=isteiki)
-        # hoge = hoge.assign(cont_year= add_year)
-        # hoge = hoge.assign(cont_month= add_month)
+        hoge = hoge.assign(is_teiki=isteiki)
+        hoge = hoge.assign(cont_year= add_year)
+        hoge = hoge.assign(cont_month= add_month)
         return hoge
     
 class fac_encoder:
@@ -475,12 +474,19 @@ class bath_encoder:
     
 class kitchin_encoder:
     def __init__(self):
+        # self.keys = {
+        #     'ガスコンロ':0, 'コンロ設置可（コンロ1口）':1, 'コンロ設置可（コンロ3口）':2, '給湯':3,
+        #      'コンロ設置可（コンロ2口）':4, 'コンロ4口以上':5, 'L字キッチン':6, '電気コンロ':7,
+        #       '冷蔵庫あり':8, 'コンロ設置可（コンロ4口以上）':9, 'IHコンロ':10, 'コンロ3口':11,
+        #        '独立キッチン':12, 'カウンターキッチン':13, 'コンロ1口':14, 'コンロ設置可（口数不明）':15,
+        #         'コンロ2口':16, 'システムキッチン':17
+        # }
         self.keys = {
-            'ガスコンロ':0, 'コンロ設置可（コンロ1口）':1, 'コンロ設置可（コンロ3口）':2, '給湯':3,
-             'コンロ設置可（コンロ2口）':4, 'コンロ4口以上':5, 'L字キッチン':6, '電気コンロ':7,
-              '冷蔵庫あり':8, 'コンロ設置可（コンロ4口以上）':9, 'IHコンロ':10, 'コンロ3口':11,
-               '独立キッチン':12, 'カウンターキッチン':13, 'コンロ1口':14, 'コンロ設置可（口数不明）':15,
-                'コンロ2口':16, 'システムキッチン':17
+            'コンロ設置可（コンロ4口以上）':0, 'システムキッチン':1, 'ガスコンロ':2,
+             'コンロ設置可（コンロ3口）':3, 'コンロ設置可（コンロ2口）':4, 'L字キッチン':5,
+              '冷蔵庫あり':6, 'IHコンロ':7, 'コンロ3口':8, 'コンロ1口':9
+              , 'コンロ設置可（コンロ1口）':10, '給湯':11, 'コンロ4口以上':12, '電気コンロ':13
+              , '独立キッチン':14, 'コンロ2口':15, 'カウンターキッチン':16, 'コンロ設置可（口数不明）':17
         }
     def fit(self,x,y):
         return self
@@ -488,7 +494,7 @@ class kitchin_encoder:
         temp = x["キッチン"].values
         setubi = [[0 for i in range(len(self.keys))] for j in range(len(temp))]
         pat = re.compile(r"／")
-        p2 = re.compile(r"コンロ設置可.*")
+        # p2 = re.compile(r"コンロ設置可.*")
         for i in range(len(temp)):
             if temp[i] != temp[i]:
                         continue
@@ -496,8 +502,8 @@ class kitchin_encoder:
                 block = temp[i].split()
                 for b in block:
                     f = pat.sub("",b)
-                    if p2.match(f):
-                        f = "コンロ設置可"
+                    # if p2.match(f):
+                    #     f = "コンロ設置可"
                     if f in self.keys:
                         setubi[i][self.keys[f]] = 1
         setubi = pd.DataFrame(setubi)
@@ -611,10 +617,10 @@ class add_mean_dist_price: #くごとの家賃平均を追加。分散、中央�
         hoge = hoge.assign(dist_p_mean=b_mean)
         # hoge = hoge.assign(dist_p_std=b_std)
         hoge = hoge.assign(dist_p_medi=b_medi)
-        hoge = hoge.assign(dist_p_max=b_max)
-        hoge = hoge.assign(dist_p_min=b_min)
-        temp = np.array(b_max)-np.array(b_min)
-        hoge = hoge.assign(dist_mm= temp)
+        # hoge = hoge.assign(dist_p_max=b_max)
+        # hoge = hoge.assign(dist_p_min=b_min)
+        # temp = np.array(b_max)-np.array(b_min)
+        # hoge = hoge.assign(dist_mm= temp)
         return hoge
     
 class add_mean_angle_price: #方角の家賃平均を追加。分散、中央値もたす。
@@ -649,10 +655,10 @@ class add_mean_angle_price: #方角の家賃平均を追加。分散、中央値
         hoge = hoge.assign(ang_p_mean=b_mean)
         # hoge = hoge.assign(dist_p_std=b_std)
         hoge = hoge.assign(ang_p_medi=b_medi)
-        hoge = hoge.assign(ang_p_max=b_max)
-        hoge = hoge.assign(ang_p_min=b_min)
-        temp = np.array(b_max)-np.array(b_min)
-        hoge = hoge.assign(ang_mm= temp)
+        # hoge = hoge.assign(ang_p_max=b_max)
+        # hoge = hoge.assign(ang_p_min=b_min)
+        # temp = np.array(b_max)-np.array(b_min)
+        # hoge = hoge.assign(ang_mm= temp)
         return hoge
     
 class add_mean_structure_price: #方角の家賃平均を追加。分散、中央値もたす。
@@ -687,10 +693,10 @@ class add_mean_structure_price: #方角の家賃平均を追加。分散、中�
         hoge = hoge.assign(str_p_mean=b_mean)
         # hoge = hoge.assign(dist_p_std=b_std)
         hoge = hoge.assign(str_p_medi=b_medi)
-        hoge = hoge.assign(str_p_max=b_max)
-        hoge = hoge.assign(str_p_min=b_min)
-        temp = np.array(b_max)-np.array(b_min)
-        hoge = hoge.assign(str_mm= temp)
+        # hoge = hoge.assign(str_p_max=b_max)
+        # hoge = hoge.assign(str_p_min=b_min)
+        # temp = np.array(b_max)-np.array(b_min)
+        # hoge = hoge.assign(str_mm= temp)
         return hoge
 
 
@@ -726,10 +732,10 @@ class add_mean_walk_price: #方角の家賃平均を追加。分散、中央値�
         hoge = hoge.assign(walk_p_mean=b_mean)
         # hoge = hoge.assign(dist_p_std=b_std)
         hoge = hoge.assign(walk_p_medi=b_medi)
-        hoge = hoge.assign(walk_p_max=b_max)
-        hoge = hoge.assign(walk_p_min=b_min)
-        temp = np.array(b_max)-np.array(b_min)
-        hoge = hoge.assign(walk_mm= temp)
+        # hoge = hoge.assign(walk_p_max=b_max)
+        # hoge = hoge.assign(walk_p_min=b_min)
+        # temp = np.array(b_max)-np.array(b_min)
+        # hoge = hoge.assign(walk_mm= temp)
         return hoge
     
 class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央値もたす。
@@ -764,10 +770,10 @@ class add_moyori_walk_price: #方角の家賃平均を追加。分散、中央�
         hoge = hoge.assign(moyo_p_mean=b_mean)
         # hoge = hoge.assign(dist_p_std=b_std)
         hoge = hoge.assign(moyo_p_medi=b_medi)
-        hoge = hoge.assign(moyo_p_max=b_max)
-        hoge = hoge.assign(moyo_p_min=b_min)
-        temp = np.array(b_max)-np.array(b_min)
-        hoge = hoge.assign(moyo_mm= temp)
+        # hoge = hoge.assign(moyo_p_max=b_max)
+        # hoge = hoge.assign(moyo_p_min=b_min)
+        # temp = np.array(b_max)-np.array(b_min)
+        # hoge = hoge.assign(moyo_mm= temp)
         return hoge
 
 

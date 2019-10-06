@@ -21,7 +21,6 @@ class my_preprocess:
             ("parse_old",parse_how_old()),
             ("height_enc",height_encoder()),
             ("ex_dist",extract_district()),
-            ("dist_price_per_area",dist_and_price_per_area()),
             ("label_dist",district_encoder()),
             ("acc_ext",access_extractor()),
             ("tr_enc",train_encoder()),
@@ -34,28 +33,33 @@ class my_preprocess:
             ("bath",bath_encoder()),
             ("kit",kitchin_encoder()),
             ("env",env_encoder()),
-            ("angle_stat",add_mean_angle_price()),
+
             ("structure_enc",structure_label_encoder()),
+
+            ("dist_price_per_area",dist_and_price_per_area()),
             ("mean_struct",add_mean_structure_price()),
-            ("mean_walk",add_mean_walk_price()),
+            ("angle_stat",add_mean_angle_price()),
+            # ("mean_walk",add_mean_walk_price()),
             ("mean_moyori",add_moyori_walk_price()),
+
             ("cross",cross_features()),
+
             ("dist2main_st",dist_to_main_station()),
             ("short_main_st",shortest2main_st()),
+
             ("drop_unnecessary",drop_unnecessary()),
+
             ("area_predictor",area_pre_predictor(seed)),
             ("area_pre_price_predictor",area_per_price_predictor(seed)),
-            ("knn_pred",Knn_regression(10)),
-            # ("knn_pred2",Knn_regression(200)),#addtional
+            ("knn_pred",Knn_regression(30)),
+            ("knn_area",Knn_area(100)),
+
             ("NMF_train_walk",NMF_train_walk(seed)),
             ("NMF_fac",NMF_fac(seed)),
             ("NMF_kit",NMF_kit(seed)),
             ("NMF_env_dist",NMF_env_dist(seed)),
             ("NMF_env",NMF_env(seed)),
             ("NMF_trainOH",NMF_trainOH(seed)),
-            # ("knn_fac",Knn_fac(30)),
-            # ("pre_pred",pre_predict(seed)), # additional
-            # ("house_in_1km",homes_in_nkm()), #additional
 ]
 
 
@@ -77,7 +81,8 @@ class my_model:
         rpstep = rp.steps
         rich_step_xgb = [
             ("pre",Pipeline(steps=rpstep)),
-            ("xgb",xgb.XGBRegressor(random_state=seed,max_depth=8))
+            ("xgb",xgb.XGBRegressor(random_state=seed,max_depth=9))
+            # ("lgbm",lgbm.LGBMRegressor(random_state=seed,max_depth=8))
         ]
         self.models = [
             Pipeline(steps=rich_step_xgb),
