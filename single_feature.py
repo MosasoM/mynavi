@@ -14,6 +14,7 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsRegressor
 from scipy.stats import zscore
 from sklearn.decomposition import NMF
+from annoy import AnnoyIndex
 
 from single import *
 from cross import *
@@ -465,6 +466,98 @@ class homes_in_nkm:
 
 
         return x.assign(house_in_1km=buf)
+
+class annoy_all:
+    def __init__(self):
+        self.model = AnnoyIndex(62+9+8,metric='angular')
+        self.col = []
+        col = []
+        for i in range(7):
+            col.append("info"+str(i))
+        for i in range(10):
+            col.append("env_dist_nmf"+str(i))
+        for i in range(10):
+            col.append("kit_nmf"+str(i))
+        for i in range(15):
+            col.append("fac_nmf"+str(i))  
+        for i in range(20):
+            col.append("tr_wa_nmf"+str(i))      
+        for i in range(8):
+            col.append("bath"+str(i))
+        col.append("mf_areasize")
+        col.append("mf_year")
+        col.append("mf_r")
+        col.append("mf_l")
+        col.append("mf_d")
+        col.append("mf_k")
+        col.append("mf_s")
+        col.append("ido")
+        col.append("keido")
+        self.col = col
+        self.price = None
+    def fit(self,x,y):
+        self.price = np.array(y)
+        data = x[self.col].values
+        data = zscore(data)
+        for i in range(len(data)):
+            self.model.add_item(i,data[i])
+        self.model.build(10)
+        return self
+    def transform(self,x):
+        data = x[self.col].values
+        data = zscore(data)
+        buf = [0 for i in range(len(data))]
+        for i in range(len(data)):
+            ind = self.model.get_nns_by_vector(data[i],1)
+            buf[i] = self.price[ind[0]]
+        return x.assign(annoy_pred=buf)
+
+class annoy_area:
+    def __init__(self):
+        self.model = AnnoyIndex(2,metric="euclidean")
+        self.y = None
+        self.others = None
+        self.col = None
+        col = []
+        for i in range(10):
+            col.append("kit_nmf"+str(i))
+        for i in range(15):
+            col.append("fac_nmf"+str(i)) 
+        col.append("mf_areasize")
+        col.append("mf_year")
+        col.append("mf_r")
+        col.append("mf_l")
+        col.append("mf_d")
+        col.append("mf_k")
+        col.append("mf_s")
+        for i in range(8):
+            col.append("bath"+str(i))
+        self.col = col
+    def fit(self,x,y):
+        self.y = np.array(y)
+        self.others = zscore(x[self.col].values)
+        data = x[["ido","keido"]].values
+        for i in range(len(data)):
+            a,b = ido_calc_xy(data[i][0],data[i][1],35.681236,139.767125)
+            self.model.add_item(i,[a,b])
+        self.model.build(10)
+        return self
+    def transform(self,x):
+        data = x[["ido","keido"]].values
+        others = zscore(x[self.col].values)
+        buf = [0 for i in range(len(data))]
+        for i in range(len(data)):
+            a,b = ido_calc_xy(data[i][0],data[i][1],35.681236,139.767125)
+            temp = self.model.get_nns_by_vector([a,b],100)
+            sim = 100000000000000
+            for ind in temp:
+                hoge = np.dot(self.others[ind],others[i])
+                if sim > hoge:
+                    sim = hoge
+                    buf[i] = self.y[ind]
+        return x.assign(annoy_area = buf)
+
+
 
 
 

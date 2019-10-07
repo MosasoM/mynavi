@@ -52,7 +52,8 @@ class my_preprocess:
             ("area_predictor",area_pre_predictor(seed)),
             ("area_pre_price_predictor",area_per_price_predictor(seed)),
             ("knn_pred",Knn_regression(30)),
-            ("knn_area",Knn_area(100)),
+            # ("knn_area",Knn_area(100)),
+
 
             ("NMF_train_walk",NMF_train_walk(seed)),
             ("NMF_fac",NMF_fac(seed)),
@@ -60,6 +61,8 @@ class my_preprocess:
             ("NMF_env_dist",NMF_env_dist(seed)),
             ("NMF_env",NMF_env(seed)),
             ("NMF_trainOH",NMF_trainOH(seed)),
+
+            ("annoy",annoy_area()),
 ]
 
 
@@ -141,7 +144,10 @@ def commit(train_x,train_y,test,name,seeds):
         model.fit(train_x,train_y)
         pred = model.predict(test)
         pred_all.append(pred)
-        pickle.dump(model, open(name+"seed_"+str(seeds[i])+".pkl", "wb"))
+        try:
+            pickle.dump(model, open(name+"seed_"+str(seeds[i])+".pkl", "wb"))
+        except:
+            pass
     pred_all = np.array(pred_all)
     pred = np.mean(pred_all,axis=0)
     pred = pd.DataFrame(pred)
