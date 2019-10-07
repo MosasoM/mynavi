@@ -38,6 +38,11 @@ def relative_height_(x):
     diff = a-b
     return per,diff
 
+def rldk_fea_(x):
+    s = x["mf_r"].values+x["mf_l"].values+x["mf_d"].values+x["mf_k"].values
+    c = x["mf_r"].values*(x["mf_l"].values+x["mf_d"].values+x["mf_k"].values)
+    return s,c
+
 
 def fit_price_stats_(x,y,category_col):
     ty = pd.DataFrame(y)

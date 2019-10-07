@@ -8,10 +8,15 @@ from single import *
 import pickle
 from sklearn.metrics import accuracy_score
 import math
+from sklearn.ensemble import RandomForestRegressor 
 
 from single_feature import *
 from basic import *
 
+categorical = [
+    "mf_dist","mf_city","mf_angle","isteiki","mf_structures","rldk",
+]
+    
 
 class my_preprocess:
     def __init__(self,seed):
@@ -27,19 +32,22 @@ class my_preprocess:
             ("parking_encoder",parking_encoder()),
             ("dir_enc",direction_encoder()),
             ("info_enc",info_encoder()),
-            ("m_d_p",add_mean_dist_price()),
             ("p_con_time",parse_contract_time()),
             ("fac",fac_encoder()),
             ("bath",bath_encoder()),
             ("kit",kitchin_encoder()),
             ("env",env_encoder()),
-
             ("structure_enc",structure_label_encoder()),
+            ("dist_salary",dist_salary()),
 
+            # ("rldk_label",rldk_label()),
+            # ("rldk_dist_label",rldk_dist_label()),
+            # ("rldk_dist_mean",add_rldk_dist_price()),
+
+            ("m_d_p",add_mean_dist_price()),
             ("dist_price_per_area",dist_and_price_per_area()),
             ("mean_struct",add_mean_structure_price()),
             ("angle_stat",add_mean_angle_price()),
-            # ("mean_walk",add_mean_walk_price()),
             ("mean_moyori",add_moyori_walk_price()),
 
             ("cross",cross_features()),
@@ -49,11 +57,6 @@ class my_preprocess:
 
             ("drop_unnecessary",drop_unnecessary()),
 
-            ("area_predictor",area_pre_predictor(seed)),
-            ("area_pre_price_predictor",area_per_price_predictor(seed)),
-            ("knn_pred",Knn_regression(30)),
-            # ("knn_area",Knn_area(100)),
-
 
             ("NMF_train_walk",NMF_train_walk(seed)),
             ("NMF_fac",NMF_fac(seed)),
@@ -61,8 +64,12 @@ class my_preprocess:
             ("NMF_env_dist",NMF_env_dist(seed)),
             ("NMF_env",NMF_env(seed)),
             ("NMF_trainOH",NMF_trainOH(seed)),
+            ("NMF_info",NMF_info(seed)),
 
             ("annoy",annoy_area()),
+            ("area_predictor",area_pre_predictor(seed)),
+            ("area_pre_price_predictor",area_per_price_predictor(seed)),
+            ("knn_pred",Knn_regression(50)),
 ]
 
 
@@ -84,8 +91,9 @@ class my_model:
         rpstep = rp.steps
         rich_step_xgb = [
             ("pre",Pipeline(steps=rpstep)),
-            ("xgb",xgb.XGBRegressor(random_state=seed,max_depth=9))
+            ("xgb",xgb.XGBRegressor(random_state=seed,max_depth=8))
             # ("lgbm",lgbm.LGBMRegressor(random_state=seed,max_depth=8))
+            # ("rfr",RandomForestRegressor(random_state=seed)),
         ]
         self.models = [
             Pipeline(steps=rich_step_xgb),
