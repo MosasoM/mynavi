@@ -1,6 +1,9 @@
 from single import *
 from cross import *
+import xgboost as xgb
 import math
+import numpy as np
+from sklearn.cluster import KMeans
 
 class parse_area_size:
     def __init__(self):
@@ -47,11 +50,23 @@ class height_encoder:
     def fit(self,x,y):
         return self
     def transform(self,x):
-        where,what=height_of_it_(x)
+        where,what,has_under,all_of_bld=height_of_it_(x)
         fuga = x.copy()
         fuga = fuga.assign(mf_what_floor=where)
         fuga = fuga.assign(mf_height_bld=what)
+        # fuga = fuga.assign(has_under=has_under)
+        # fuga = fuga.assign(all_of_bld=all_of_bld)
         return fuga
+
+class actual_height:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        data = x["field_height"].values
+        hoge = data + x["mf_what_floor"].values*3
+        return x.assign(actual_height=hoge)
 
 
 class extract_district:
@@ -74,7 +89,7 @@ class district_encoder:
     def fit(self,x,y):
         self.dist_label = {}
         self.city_label = {}
-        ind = 1
+        ind = 0
         for key in x["district"].unique():
             self.dist_label[key] = ind
             ind += 1
@@ -87,7 +102,7 @@ class district_encoder:
     def transform(self,x):
         temp = x["district"].values
         buf = [0 for i in range(len(temp))]
-        hoge = x.drop("district",axis=1)
+        hoge = x.copy()
         for i in range(len(temp)):
             if temp[i] in self.dist_label:
                 buf[i] = self.dist_label[temp[i]]
@@ -95,12 +110,36 @@ class district_encoder:
         
         buf = [0 for i in range(len(temp))]
         temp = x["city"].values
-        hoge = hoge.drop("city",axis=1)
+        # hoge = hoge.drop("city",axis=1)
         for i in range(len(temp)):
             if temp[i] in self.city_label:
                 buf[i] = self.city_label[temp[i]]
         hoge = hoge.assign(mf_city=buf)
         return hoge
+class district_onehot:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        buf = [[0 for i in range(23)] for j in range(len(x.values))]
+        data = x["mf_dist"].values
+        for i in range(len(data)):
+            buf[i][data[i]] = 1
+        
+        hoge = x.drop("mf_dist",axis=1)
+        hgoe = hoge.drop("mf_city",axis=1)
+
+        setubi = pd.DataFrame(buf)
+        c_num = len(setubi.columns)
+        col = []
+        for i in range(c_num):
+            col.append("dist_oh"+str(i))
+        setubi.columns = col
+        setubi.index = hoge.index
+        hoge =  pd.concat([hoge,setubi],axis = 1)
+        return hoge
+
 
 class direction_encoder:
     def __init__(self):
@@ -116,10 +155,33 @@ class direction_encoder:
         for i in range(len(temp)):
             if temp[i] in self.classi:
                 ans[i] = self.classi[temp[i]]
-        hoge = x.drop("方角",axis=1)
+        hoge = x.copy()
         hoge = hoge.assign(mf_angle = ans)
                     
         return hoge
+class direction_onehot:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        buf = [[0 for i in range(8)] for j in range(len(x.values))]
+        data = x["mf_angle"].values
+        for i in range(len(data)):
+            buf[i][data[i]] = 1
+        
+        hoge = x.drop("mf_angle",axis=1)
+
+        setubi = pd.DataFrame(buf)
+        c_num = len(setubi.columns)
+        col = []
+        for i in range(c_num):
+            col.append("angle_oh"+str(i))
+        setubi.columns = col
+        setubi.index = hoge.index
+        hoge =  pd.concat([hoge,setubi],axis = 1)
+        return hoge
+
 
 class access_extractor:
     def __init__(self):
@@ -158,7 +220,7 @@ class train_encoder:
         return self
     def transform(self,x):
         temp = [[30 for i in range(len(self.train_dic))] for j in range(len(x.values))]
-        onehot = [[0 for i in range(len(self.train_dic))] for j in range(len(x.values))]
+        # onehot = [[0 for i in range(len(self.train_dic))] for j in range(len(x.values))]
         moyori = [0 for i in range(len(x.values))]
         fuga = x["train"].values
         piyo = x["walk"].values
@@ -172,7 +234,7 @@ class train_encoder:
             key = fuga[i]
             if key in self.train_dic:
                 temp[i][train_dic[key]] = piyo[i]
-                onehot[i][train_dic[key]] = 1
+                # onehot[i][train_dic[key]] = 1
            
                 
         fuga = x["train2"].values
@@ -181,7 +243,7 @@ class train_encoder:
             key = fuga[i]
             if key in self.train_dic:
                 temp[i][train_dic[key]] = min(piyo[i],temp[i][train_dic[key]])
-                onehot[i][train_dic[key]] = 1
+                # onehot[i][train_dic[key]] = 1
                 
         fuga = x["train3"].values
         piyo = x["walk3"].values
@@ -189,7 +251,7 @@ class train_encoder:
             key = fuga[i]
             if key in self.train_dic:
                 temp[i][train_dic[key]] = min(piyo[i],temp[i][train_dic[key]])
-                onehot[i][train_dic[key]] = 1
+                # onehot[i][train_dic[key]] = 1
         
         temp = pd.DataFrame(temp)
         col = []
@@ -201,14 +263,14 @@ class train_encoder:
         temp.index = hoge.index
         hoge = pd.concat([hoge,temp],axis = 1)
 
-        temp = pd.DataFrame(onehot)
-        col = []
-        c_num = len(temp.columns)
-        for i in range(c_num):
-            col.append("train_OH_"+str(i))
-        temp.columns = col
-        temp.index = hoge.index
-        hoge = pd.concat([hoge,temp],axis = 1)
+        # temp = pd.DataFrame(onehot)
+        # col = []
+        # c_num = len(temp.columns)
+        # for i in range(c_num):
+        #     col.append("train_OH_"+str(i))
+        # temp.columns = col
+        # temp.index = hoge.index
+        # hoge = pd.concat([hoge,temp],axis = 1)
         
         train_freq = make_freq_elem(x["train"],self.train_dic)
         temp = x["train"].values
@@ -253,7 +315,7 @@ class parking_encoder:
         for i in range(c_num):
             col.append("park"+str(i))
         setubi.columns = col
-        hoge = x.drop("駐車場",axis = 1)
+        hoge = x.copy()
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
         
@@ -308,7 +370,7 @@ class info_encoder:
         for i in range(c_num):
             col.append("info"+str(i))
         setubi.columns = col
-        hoge = x.drop("放送・通信",axis = 1)
+        hoge = x.copy()
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
         
@@ -321,7 +383,7 @@ class drop_unnecessary:
     def __init__(self):
         self.to_drop = []
         self.valid = ['id', '賃料', '所在地', 'アクセス', '間取り', '築年数', '方角', '面積', '所在階', 'バス・トイレ',
-       'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train"]
+       'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train","district","city"]
         self.pat = []
     def fit(self,x,y):
         return self
@@ -335,7 +397,7 @@ class drop_unnecessary:
     
 class parse_contract_time:
     def __init__(self):
-        self.teiki_pat = re.compile(r".*\t.*")
+        self.teiki_pat = re.compile(r".*定期借家.*")
         self.year_pat = re.compile(r"[0-9]+年間")
         self.month_pat = re.compile(r"[0-9]+ヶ月間")
         self.due_year_pat = re.compile(r"[0-9]+年")
@@ -381,7 +443,7 @@ class parse_contract_time:
                         month = self.month_pat.match(temp[i])[0][:-3]
                     add_year[i] = int(year)
                     add_month[i] = int(month)
-        hoge = hoge.drop(["契約期間"],axis = 1)
+        hoge = hoge.copy()
         hoge = hoge.assign(is_teiki=isteiki)
         hoge = hoge.assign(cont_year= add_year)
         hoge = hoge.assign(cont_month= add_month)
@@ -416,7 +478,7 @@ class fac_encoder:
         for i in range(c_num):
             col.append("fac"+str(i))
         setubi.columns = col
-        hoge = x.drop("室内設備",axis = 1)
+        hoge = x.copy()
         setubi.index = hoge.index
         hoge = pd.concat([hoge,setubi],axis = 1)
     
@@ -441,6 +503,30 @@ class structure_label_encoder:
         hoge = x.drop("建物構造",axis=1)
         hoge = hoge.assign(mf_structure=ans)
         return hoge
+
+class structure_onehot:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        buf = [[0 for i in range(9)] for j in range(len(x.values))]
+        data = x["mf_structure"].values
+        for i in range(len(data)):
+            buf[i][data[i]] = 1
+        
+        hoge = x.drop("mf_structure",axis=1)
+
+        setubi = pd.DataFrame(buf)
+        c_num = len(setubi.columns)
+        col = []
+        for i in range(c_num):
+            col.append("structure_oh"+str(i))
+        setubi.columns = col
+        setubi.index = hoge.index
+        hoge =  pd.concat([hoge,setubi],axis = 1)
+        return hoge
+
     
 class bath_encoder:
     def __init__(self):
@@ -467,7 +553,7 @@ class bath_encoder:
         for i in range(c_num):
             col.append("bath"+str(i))
         setubi.columns = col
-        hoge = x.drop("バス・トイレ",axis = 1)
+        hoge = x.copy()
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
     
@@ -506,7 +592,7 @@ class kitchin_encoder:
         for i in range(c_num):
             col.append("kit"+str(i))
         setubi.columns = col
-        hoge = x.drop("キッチン",axis = 1)
+        hoge = x.copy()
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
         
@@ -543,7 +629,7 @@ class env_encoder:
         for i in range(c_num):
             col.append("envv"+str(i))
         setubi.columns = col
-        hoge = x.drop("周辺環境",axis = 1)
+        hoge = x.copy()
         setubi.index = hoge.index
         hoge = pd.concat([hoge,setubi],axis = 1)
         
@@ -826,3 +912,103 @@ class dist_to_main_station:
             col.append("dist_main_st"+str(i))
         dist.columns = col
         return pd.concat([x,dist],axis=1)
+
+class moyori_drop:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        return x.drop("moyori",axis=1)
+
+
+class only_rich_model:
+    def __init__(self,seed=7777):
+        self.rich_model = xgb.XGBRegressor(random_state=seed,max_depth=8)
+        self.poor_model = xgb.XGBRegressor(random_state=seed,max_depth=8)
+    def fit(self,x,y):
+        fuga = pd.DataFrame(y.values)
+        fuga.columns=["price_ff"]
+        fuga.index=x.index
+        hoge = pd.concat([x,fuga],axis=1)
+        fuga = hoge.query("price_ff>200000")
+        rich_x = fuga.drop("price_ff",axis=1)
+        rich_y = fuga["price_ff"]
+        self.rich_model.fit(rich_x,rich_y)
+
+        fuga = hoge.query("price_ff<=300000")
+        poor_x = fuga.drop("price_ff",axis=1)
+        poor_y = fuga["price_ff"]
+        self.poor_model.fit(poor_x,poor_y)
+
+        return self
+    
+    def transform(self,x):
+        pred = self.rich_model.predict(x)
+        pred2 = self.poor_model.predict(x)
+        hoge = x.assign(poor_model=pred2)
+        # hoge = x.copy()
+        return hoge.assign(rich_model=pred)
+
+class middle_class_centers:
+    def __init__(self):
+        self.ks = KMeans(n_clusters=8,random_state=7777)
+        self.centers = None
+    def fit(self,x,y):
+        fuga = pd.DataFrame(y.values)
+        fuga.columns=["price_ff"]
+        fuga.index=x.index
+        hoge = pd.concat([x,fuga],axis=1)
+        hoge = hoge.query("200000<price_ff<300000")
+        
+        coord = hoge[["ido","keido"]].values
+        tar = hoge["price_ff"].values
+
+        self.ks.fit(coord,tar)
+        self.centers = self.ks.cluster_centers_
+        return self
+    def transform(self,x):
+        ido = x["ido"].values
+        keido = x["keido"].values
+        buf = [[0 for i in range(len(self.centers))] for j in range(len(x.values))]
+        for i in range(len(x.values)):
+            for j in range(len(self.centers)):
+                to_ido = self.centers[j][0]
+                to_keido = self.centers[j][1]
+                buf[i][j] = google_distance(ido[i],keido[i],to_ido,to_keido)
+
+        dist = pd.DataFrame(buf)
+        dist.index = x.index
+        col = []
+        for i in range(len(self.centers)):
+            col.append("dist_middle_center"+str(i))
+        dist.columns = col
+        shortest = np.amin(buf,axis=1)
+        hoge = x.assign(shortest_to_middle=shortest)
+        return pd.concat([hoge,dist],axis=1)
+
+
+class height_class_center:
+    def __init__(self):
+        self.center =  None
+    def fit(self,x,y):
+        fuga = pd.DataFrame(y.values)
+        fuga.columns=["price_ff"]
+        fuga.index=x.index
+        hoge = pd.concat([x,fuga],axis=1)
+        hoge = hoge.query("price_ff>300000")
+
+        coord = hoge[["ido","keido"]].values
+        tar = hoge["price_ff"]
+
+        self.center = np.average(coord,axis=0,weights=tar)
+        return self
+    def transform(self,x):
+        ido = x["ido"].values
+        keido = x["keido"].values
+        buf = [0 for i in range(len(x.values))]
+        for i in range(len(x.values)):
+            to_ido = self.center[0]
+            to_keido = self.center[1]
+            buf[i] = google_distance(ido[i],keido[i],to_ido,to_keido)
+        return x.assign(dist_high_center=buf)

@@ -65,30 +65,40 @@ def height_of_it_(x):
     tmp = x["所在階"].values
     where = [0 for i in range(len(tmp))]
     what = [0 for i in range(len(tmp))]
+    has_under = [0 for i in range(len(tmp))]
+    all_of_bld = [0 for i in range(len(tmp))]
+    u_pat = re.compile(r"地下")
+    not_all_pat = re.compile(r"／")
+
     for i in range(len(tmp)):
-        try:
+        if tmp[i] != tmp[i]:
+            where[i] = -1
+            what[i] = -1
+            continue
+        if not_all_pat.search(tmp[i]):
             hoge =  tmp[i].split("／")
-        except:
-            hoge = ["2階","3階建て"]
-        if len(hoge) == 2:
             if hoge[0] == "":
-                hoge[0] = "2階"
+                hoge[0] = "2"
             if hoge[1] == "":
-                hoge[1] = "3階建て"
+                hoge[1] = "3"
             x = int(re.search(r"[0-9]+",hoge[0])[0])
             y = int(re.search(r"[0-9]+",hoge[1])[0])
         else:
-            x = 2
-            y = 3
+            all_of_bld[i] = 1
+            x = int(re.search(r"[0-9]+",tmp[i])[0])
+            y = x
+        if u_pat.search(tmp[i]):
+            has_under[i] = 1
         where[i] = x
         what[i] = y
-    return where,what
+
+    return where,what,has_under,all_of_bld
 
 def address_of_it_(x):
     pat = re.compile(r"東京都.+区")
-    p2 = re.compile(r"区.+?[０-９]丁目")
+    p2 = re.compile(r"区.+?[0-9|０-９]丁目")
     p3 = re.compile(r"区.+?町")
-    p4 = re.compile(r"区.+")
+    p4 = re.compile(r"区.+?[0-9|０-９]")
     dist = ["" for i in range(len(x.values))]
     area = ["" for i in range(len(x.values))]
     tmp = x["所在地"].values
@@ -97,7 +107,7 @@ def address_of_it_(x):
         dist[i] = m[0][3:]
         m = p2.search(tmp[i])
         if m:
-            area[i] = m[0][1:]
+            area[i] = m[0][1:-3]
         else:
             m = p3.search(tmp[i])
             if m:
@@ -105,7 +115,7 @@ def address_of_it_(x):
             else:
                 m = p4.search(tmp[i])
                 if m:
-                    area[i] = m[0][1:]
+                    area[i] = m[0][1:-1]
     return dist,area
 
 def train_and_walk_(x):
