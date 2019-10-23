@@ -3,8 +3,10 @@ import re
 import pandas as pd
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 import math
 from scipy.stats import zscore
+from annoy import AnnoyIndex
 
 def area_size_(x):
     temp = x["面積"].values
@@ -63,6 +65,7 @@ class parse_rooms:
         hoge = hoge.assign(mf_d = d)
         hoge = hoge.assign(mf_k = k)
         hoge = hoge.assign(mf_s = s)
+        
         return hoge
 
 def how_old_(x):
@@ -431,10 +434,106 @@ class kitchin_encoder:
         setubi.index = hoge.index
         hoge =  pd.concat([hoge,setubi],axis = 1)
 
-        temp = np.sum(setubi,axis=1)
-        hoge = hoge.assign(kit_sum=temp)
+        # temp = np.sum(setubi,axis=1)
+        # hoge = hoge.assign(kit_sum=temp)
         
         return hoge
+
+def ido_calc_xy(phi_deg, lambda_deg, phi0_deg, lambda0_deg):
+    """ 緯度経度を平面直角座標に変換する
+    - input:
+        (phi_deg, lambda_deg): 変換したい緯度・経度[度]（分・秒でなく小数であることに注意）
+        (phi0_deg, lambda0_deg): 平面直角座標系原点の緯度・経度[度]（分・秒でなく小数であることに注意）
+    - output:
+        x: 変換後の平面直角座標[m]
+        y: 変換後の平面直角座標[m]
+    """
+    # 緯度経度・平面直角座標系原点をラジアンに直す
+    phi_rad = np.deg2rad(phi_deg)
+    lambda_rad = np.deg2rad(lambda_deg)
+    phi0_rad = np.deg2rad(phi0_deg)
+    lambda0_rad = np.deg2rad(lambda0_deg)
+
+    # 補助関数
+    def A_array(n):
+        A0 = 1 + (n**2)/4. + (n**4)/64.
+        A1 = -     (3./2)*( n - (n**3)/8. - (n**5)/64. ) 
+        A2 =     (15./16)*( n**2 - (n**4)/4. )
+        A3 = -   (35./48)*( n**3 - (5./16)*(n**5) )
+        A4 =   (315./512)*( n**4 )
+        A5 = -(693./1280)*( n**5 )
+        return np.array([A0, A1, A2, A3, A4, A5])
+
+    def alpha_array(n):
+        a0 = np.nan # dummy
+        a1 = (1./2)*n - (2./3)*(n**2) + (5./16)*(n**3) + (41./180)*(n**4) - (127./288)*(n**5)
+        a2 = (13./48)*(n**2) - (3./5)*(n**3) + (557./1440)*(n**4) + (281./630)*(n**5)
+        a3 = (61./240)*(n**3) - (103./140)*(n**4) + (15061./26880)*(n**5)
+        a4 = (49561./161280)*(n**4) - (179./168)*(n**5)
+        a5 = (34729./80640)*(n**5)
+        return np.array([a0, a1, a2, a3, a4, a5])
+
+    # 定数 (a, F: 世界測地系-測地基準系1980（GRS80）楕円体)
+    m0 = 0.9999 
+    a = 6378137.
+    F = 298.257222101
+
+    # (1) n, A_i, alpha_iの計算
+    n = 1. / (2*F - 1)
+    A_array = A_array(n)
+    alpha_array = alpha_array(n)
+
+    # (2), S, Aの計算
+    A_ = ( (m0*a)/(1.+n) )*A_array[0] # [m]
+    S_ = ( (m0*a)/(1.+n) )*( A_array[0]*phi0_rad + np.dot(A_array[1:], np.sin(2*phi0_rad*np.arange(1,6))) ) # [m]
+
+    # (3) lambda_c, lambda_sの計算
+    lambda_c = np.cos(lambda_rad - lambda0_rad)
+    lambda_s = np.sin(lambda_rad - lambda0_rad)
+
+    # (4) t, t_の計算
+    t = np.sinh( np.arctanh(np.sin(phi_rad)) - ((2*np.sqrt(n)) / (1+n))*np.arctanh(((2*np.sqrt(n)) / (1+n)) * np.sin(phi_rad)) )
+    t_ = np.sqrt(1 + t*t)
+
+    # (5) xi', eta'の計算
+    xi2  = np.arctan(t / lambda_c) # [rad]
+    eta2 = np.arctanh(lambda_s / t_)
+
+    # (6) x, yの計算
+    x = A_ * (xi2 + np.sum(np.multiply(alpha_array[1:],
+                                       np.multiply(np.sin(2*xi2*np.arange(1,6)),
+                                                   np.cosh(2*eta2*np.arange(1,6)))))) - S_ # [m]
+    y = A_ * (eta2 + np.sum(np.multiply(alpha_array[1:],
+                                        np.multiply(np.cos(2*xi2*np.arange(1,6)),
+                                                    np.sinh(2*eta2*np.arange(1,6)))))) # [m]
+    # return
+    return x, y # [m]
+
+class annoy_fille_env:
+    def __init__(self):
+        self.model = AnnoyIndex(2,metric="euclidean")
+        self.tar=None
+    def fit(self,x,y):
+        hoge = x.dropna(subset=["周辺環境"])
+        data = hoge[["ido","keido"]].values
+        self.tar = hoge["周辺環境"].values
+        for i in range(len(data)):
+            a,b = ido_calc_xy(data[i][0],data[i][1],35.681236,139.767125)
+            self.model.add_item(i,[a,b])
+        self.model.build(30)
+        return self
+    def transform(self,x):
+        env = x["周辺環境"].values
+        data = x[["ido","keido"]].values
+        buf = ["" for i in range(len(env))]
+        for i in range(len(buf)):
+            if env[i] != env[i]:
+                a,b = ido_calc_xy(data[i][0],data[i][1],35.681236,139.767125)
+                temp = self.model.get_nns_by_vector([a,b],1)
+                buf[i] = self.tar[temp[0]]
+            else:
+                buf[i] = env[i]
+        return x.assign(environment = buf)
     
 class env_encoder:
     def __init__(self):
@@ -447,6 +546,7 @@ class env_encoder:
     
     def transform(self,x):
         temp = x["周辺環境"].values
+        # temp = x["environment"].values
         setubi = [[0 for i in range(len(self.keys))] for j in range(len(temp))]
         pat = re.compile(r"／")
         p2 = re.compile("【.*】")
@@ -475,6 +575,7 @@ class env_encoder:
         # hoge = hoge.assign(env_sum=temp)
         
         temp = x["周辺環境"].values
+        # temp = x["environment"].values
         setubi = [[10000 for i in range(len(self.keys))] for j in range(len(temp))]
         pat = re.compile(r"／")
         p2 = re.compile("【.*】")
@@ -500,8 +601,6 @@ class env_encoder:
         setubi.columns = col
         setubi.index = hoge.index
         hoge = pd.concat([hoge,setubi],axis = 1)
-        
-
         
         return hoge
 
@@ -557,6 +656,42 @@ class dist_to_main_station:
         dist.columns = col
         return pd.concat([x,dist],axis=1)
 
+class low_class_centers:
+    def __init__(self):
+        self.ks = KMeans(n_clusters=8,random_state=7777)
+        self.centers = None
+    def fit(self,x,y):
+        fuga = pd.DataFrame(y.values)
+        fuga.columns=["price_ff"]
+        fuga.index=x.index
+        hoge = pd.concat([x,fuga],axis=1)
+        hoge = hoge.query("price_ff<50000")
+        
+        coord = hoge[["ido","keido"]].values
+        tar = hoge["price_ff"].values
+
+        self.ks.fit(coord,tar)
+        self.centers = self.ks.cluster_centers_
+        return self
+    def transform(self,x):
+        ido = x["ido"].values
+        keido = x["keido"].values
+        buf = [[0 for i in range(len(self.centers))] for j in range(len(x.values))]
+        for i in range(len(x.values)):
+            for j in range(len(self.centers)):
+                to_ido = self.centers[j][0]
+                to_keido = self.centers[j][1]
+                buf[i][j] = google_distance(ido[i],keido[i],to_ido,to_keido)
+
+        dist = pd.DataFrame(buf)
+        dist.index = x.index
+        col = []
+        for i in range(len(self.centers)):
+            col.append("dist_low_center"+str(i))
+        dist.columns = col
+        hoge = x.copy()
+        return pd.concat([hoge,dist],axis=1)
+
 class middle_class_centers:
     def __init__(self):
         self.ks = KMeans(n_clusters=8,random_state=7777)
@@ -591,10 +726,42 @@ class middle_class_centers:
             col.append("dist_middle_center"+str(i))
         dist.columns = col
         hoge = x.copy()
-        shortest = np.amin(buf,axis=1)
-        hoge = x.assign(shortest_to_middle=shortest)
-        middle_label = np.argmin(buf,axis=1)
-        hoge = hoge.assign(middle_label=middle_label)
+        return pd.concat([hoge,dist],axis=1)
+
+class middle_high_centers:
+    def __init__(self):
+        self.ks = KMeans(n_clusters=10,random_state=7777)
+        self.centers = None
+    def fit(self,x,y):
+        fuga = pd.DataFrame(y.values)
+        fuga.columns=["price_ff"]
+        fuga.index=x.index
+        hoge = pd.concat([x,fuga],axis=1)
+        hoge = hoge.query("300000<price_ff")
+        
+        coord = hoge[["ido","keido"]].values
+        tar = hoge["price_ff"].values
+
+        self.ks.fit(coord,tar)
+        self.centers = self.ks.cluster_centers_
+        return self
+    def transform(self,x):
+        ido = x["ido"].values
+        keido = x["keido"].values
+        buf = [[0 for i in range(len(self.centers))] for j in range(len(x.values))]
+        for i in range(len(x.values)):
+            for j in range(len(self.centers)):
+                to_ido = self.centers[j][0]
+                to_keido = self.centers[j][1]
+                buf[i][j] = google_distance(ido[i],keido[i],to_ido,to_keido)
+
+        dist = pd.DataFrame(buf)
+        dist.index = x.index
+        col = []
+        for i in range(len(self.centers)):
+            col.append("dist_middle_high_center"+str(i))
+        dist.columns = col
+        hoge = x.copy()
         return pd.concat([hoge,dist],axis=1)
 
 
@@ -606,7 +773,7 @@ class heigh_class_center:
         fuga.columns=["price_ff"]
         fuga.index=x.index
         hoge = pd.concat([x,fuga],axis=1)
-        hoge = hoge.query("price_ff>300000")
+        hoge = hoge.query("price_ff>700000")
 
         coord = hoge[["ido","keido"]].values
         tar = hoge["price_ff"]
@@ -621,7 +788,9 @@ class heigh_class_center:
             to_ido = self.center[0]
             to_keido = self.center[1]
             buf[i] = google_distance(ido[i],keido[i],to_ido,to_keido)
-        return x.assign(dist_high_center=buf)
+        buf = np.array(buf)
+        hoge = x.assign(dist_high_sq = buf*buf)
+        return hoge.assign(dist_high_center=buf)
 
 class knn_tika1:
     def __init__(self):
@@ -633,7 +802,7 @@ class knn_tika1:
         df = df[["緯度","経度","Ｈ３１価格"]]
         df.columns = ["ido","keido","price"]
         self.df = df
-        self.model = KNeighborsRegressor(n_neighbors=3,weights="distance")
+        self.model = KNeighborsRegressor(n_neighbors=2,weights="distance")
 
     def fit(self,x,y):
         ex_var = self.df[["ido","keido"]].values
@@ -661,7 +830,7 @@ class knn_tika2:
         df = df[["緯度","経度","Ｈ３０価格"]]
         df.columns = ["ido","keido","price"]
         self.df = df
-        self.model = KNeighborsRegressor(n_neighbors=3,weights="distance")
+        self.model = KNeighborsRegressor(n_neighbors=2,weights="distance")
 
     def fit(self,x,y):
         ex_var = self.df[["ido","keido"]].values
@@ -696,7 +865,7 @@ class drop_unnecessary:
     def __init__(self):
         self.to_drop = []
         self.valid = ['id', '賃料', '所在地', 'アクセス', '間取り', '築年数', '方角', '面積', '所在階', 'バス・トイレ',
-       'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train","district","city"]
+       'キッチン', '放送・通信', '室内設備', '駐車場', '周辺環境', '建物構造', '契約期間',"train","district","city","environment"]
         self.pat = []
     def fit(self,x,y):
         return self
@@ -706,24 +875,6 @@ class drop_unnecessary:
             if name in tmp.columns:
                 tmp = tmp.drop(name,axis = 1)
         return tmp
-
-class Knn_regression:
-    def __init__(self):
-        self.model = KNeighborsRegressor(n_neighbors=30,weights="distance")
-    def fit(self,x,y):
-        ex_var = x[["ido","keido"]].values
-        ex_var = zscore(ex_var)
-        ty = np.array(y)/x["mf_areasize"].values
-        self.model.fit(ex_var,ty)
-        return self
-    def transform(self,x):
-        ex_var = x[["ido","keido"]].values
-        ex_var = zscore(ex_var)
-        pred = self.model.predict(ex_var)
-        hoge = x.assign(knn_pred=pred)
-        temp = pred*x["mf_areasize"].values
-        hoge = hoge.assign(knn_area_price=temp)
-        return hoge
 
 class drop_for_linear:
     def __init__(self):
@@ -739,3 +890,52 @@ class drop_for_linear:
             if "env_dist" in col:
                 to_drop.append(col)
         return x.drop(to_drop,axis=1)
+
+class PCA_all:
+    def __init__(self):
+        self.pca = PCA(n_components=20)
+    def fit(self,x,y):
+        self.pca.fit(x)
+        return self
+    def transform(self,x):
+        prime = self.pca.transform(x)
+        setubi = pd.DataFrame(prime)
+        c_num = len(setubi.columns)
+        col = []
+        for i in range(c_num):
+            col.append("pca"+str(i))
+        setubi.columns = col
+
+        hoge = x.copy()
+        setubi.index = hoge.index
+        hoge =  pd.concat([hoge,setubi],axis = 1)
+
+        return hoge
+
+class Knn_regression:
+    def __init__(self):
+        self.model = KNeighborsRegressor(n_neighbors=30,weights="distance")
+        self.model2 = KNeighborsRegressor(n_neighbors=3,weights="distance")
+    def fit(self,x,y):
+        ex_var = x[["ido","keido"]].values
+        ex_var = zscore(ex_var)
+        ty = np.array(y)/x["mf_areasize"].values
+        self.model.fit(ex_var,ty)
+        self.model2.fit(ex_var,y)
+        return self
+    def transform(self,x):
+        ex_var = x[["ido","keido"]].values
+        ex_var = zscore(ex_var)
+        pred = self.model.predict(ex_var)
+        pred2 = self.model2.predict(ex_var)
+        hoge = x.assign(knn_pred=pred)
+        temp = pred*x["mf_areasize"].values
+        hoge = hoge.assign(knn_area_price=temp)
+
+        hoge = hoge.assign(knn_direct_pred=pred2)
+
+        temp = pred-x["tika1"].values
+        hoge = hoge.assign(tika_knn_diff=temp)
+        hoge = hoge.assign(tika_knn_diff_area=temp*x["mf_areasize"].values)
+        return hoge
+        

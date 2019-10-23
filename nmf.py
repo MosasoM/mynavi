@@ -4,7 +4,7 @@ import pandas as pd
 class NMF_train_walk:
     def __init__(self,rand_s):
         self.cols = []
-        self.model = NMF(n_components=20, init='nndsvd', random_state=rand_s)
+        self.model = NMF(n_components=40, init='nndsvd', random_state=rand_s)
     def fit(self,x,y):
         for col in x.columns:
             if "train_walk_" in col: #ここと
@@ -28,7 +28,7 @@ class NMF_train_walk:
 class NMF_fac:
     def __init__(self,rand_s):
         self.cols = []
-        self.model = NMF(n_components=15, init='nndsvd', random_state=rand_s)
+        self.model = NMF(n_components=20, init='nndsvd', random_state=rand_s)
     def fit(self,x,y):
         for col in x.columns:
             if "fac" in col: #ここと
@@ -52,7 +52,7 @@ class NMF_fac:
 class NMF_kit:
     def __init__(self,rand_s):
         self.cols = []
-        self.model = NMF(n_components=10, init='nndsvd', random_state=rand_s)
+        self.model = NMF(n_components=15, init='nndsvd', random_state=rand_s)
     def fit(self,x,y):
         for col in x.columns:
             if "kit" in col: #ここと
@@ -148,7 +148,7 @@ class NMF_info:
 class NMF_trainOH:
     def __init__(self,rand_s):
         self.cols = []
-        self.model = NMF(n_components=15, init='nndsvd', random_state=rand_s)
+        self.model = NMF(n_components=30, init='nndsvd', random_state=rand_s)
     def fit(self,x,y):
         for col in x.columns:
             if "train_OH" in col: #ここと

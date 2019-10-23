@@ -27,17 +27,15 @@ class my_preprocess:
             ("fac",fac_encoder()),
             ("bath",bath_encoder()),
             ("kit",kitchin_encoder()),
-            # ("env_fill",annoy_fille_env()),
             ("env",env_encoder()),
             ("structure_enc",structure_label_encoder()),
             ("dist2main_st",dist_to_main_station()),
             ("short_main_st",shortest2main_st()),
             ("knn_tika1",knn_tika1()),
-            # ("knn_tika2",knn_tika2()),
+            ("knn_tika2",knn_tika2()),
             ("actual_height",actual_height()),
             ("middle_class",middle_class_centers()),
             ("high_class",heigh_class_center()),
-            ("middle_high",middle_high_centers()),
 
             ("m_d_p",add_mean_dist_price()),
             ("mean_struct",add_mean_structure_price()),
@@ -53,10 +51,6 @@ class my_preprocess:
             ("NMF_kit",NMF_kit(seed)),
             ("NMF_env_dist",NMF_env_dist(seed)),
             ("NMF_env",NMF_env(seed)),
-
-            ("knn",Knn_regression()),
-
-
 ]
 
 class my_linear:
@@ -73,7 +67,6 @@ class my_linear:
             ("acc_ext",access_extractor()),
             ("tr_enc",train_encoder()),
             # ("parking_encoder",parking_encoder()),
-            ("knn_tika1",knn_tika1()),
             ("dir_enc",direction_encoder()),
             ("info_enc",info_encoder()),
             ("p_con_time",parse_contract_time()),
@@ -82,10 +75,6 @@ class my_linear:
             ("kit",kitchin_encoder()),
             ("env",env_encoder()),
             ("structure_enc",structure_label_encoder()),
-
-            ("actual_height",actual_height()),
-            ("middle_class",middle_class_centers()),
-            ("high_class",heigh_class_center()),
 
             ("m_d_p",add_mean_dist_price()),
             ("mean_walk",add_mean_walk_price()),

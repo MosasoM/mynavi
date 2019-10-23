@@ -104,6 +104,12 @@ class cross_features:
         
         temp = x["mf_areasize"].values*x["mf_what_floor"].values
         hoge = hoge.assign(area_fot_floor = temp)
+
+        temp = hoge["height_percent"].values*x["mf_areasize"].values
+        hoge = hoge.assign(area_cross_height_p = temp)
+
+        temp = hoge["height_diff"].values*x["mf_areasize"].values
+        hoge = hoge.assign(area_cross_height_ = temp)
         
         return hoge
 
