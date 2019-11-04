@@ -7,6 +7,7 @@ from sklearn.decomposition import PCA
 import math
 from scipy.stats import zscore
 from annoy import AnnoyIndex
+from sklearn.preprocessing import scale
 
 def area_size_(x):
     temp = x["面積"].values
@@ -140,8 +141,8 @@ def height_of_it_(x):
     return where,what,has_under,all_of_bld
 
 class height_encoder:
-    def __init__ (self,add_cat=True):
-        self.add_cat = add_cat
+    def __init__ (self):
+        pass
     def fit(self,x,y):
         return self
     def transform(self,x):
@@ -151,6 +152,34 @@ class height_encoder:
         fuga = fuga.assign(mf_height_bld=what)
         fuga = fuga.assign(has_under=has_under)
         return fuga
+
+class train_passanger:
+    def __init__(self):
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        tp = pd.read_csv("./train_passanger.csv")
+        tp = tp.values
+        pdic = {}
+        for i in range(len(tp)):
+            if tp[i][0] not in pdic:
+                pdic[tp[i][0]] = tp[i][1]
+            else:
+                if tp[i][1] > pdic[tp[i][0]]:
+                    pdic[tp[i][0]] = tp[i][1] 
+        data = x["アクセス"].values
+        buf = [0 for i in range(len(data))]
+        pat = re.compile(r".+?駅")
+        pat2 = re.compile(r"(\(東京都\)|\(都営線\)|\(都電荒川線\)|\(ＴＸ\)|\(東京メトロ\)|\(西武線\)|\(千葉県\)|\(舎人ライナー\)|\(東京メトロ\))")
+        pat3 = re.compile(r"ケ")
+        for i in range(len(data)):
+            txt = pat.search(data[i])[0][:-1].split()[1]
+            txt = pat2.sub("",txt)
+            txt = pat3.sub("ヶ",txt)
+            buf[i] = pdic[txt]
+        return x.assign(train_pass=buf)
+
 
 class direction_encoder:
     def __init__(self):
@@ -737,7 +766,7 @@ class middle_high_centers:
         fuga.columns=["price_ff"]
         fuga.index=x.index
         hoge = pd.concat([x,fuga],axis=1)
-        hoge = hoge.query("300000<price_ff")
+        hoge = hoge.query("300000<price_ff<500000")
         
         coord = hoge[["ido","keido"]].values
         tar = hoge["price_ff"].values
@@ -789,8 +818,8 @@ class heigh_class_center:
             to_keido = self.center[1]
             buf[i] = google_distance(ido[i],keido[i],to_ido,to_keido)
         buf = np.array(buf)
-        hoge = x.assign(dist_high_sq = buf*buf)
-        return hoge.assign(dist_high_center=buf)
+        hoge = x.assign(dist_high_center = buf)
+        return hoge.assign(dist_high_sq=buf*buf)
 
 class knn_tika1:
     def __init__(self):
@@ -852,6 +881,7 @@ class knn_tika2:
 class dummy:
     def __init__(self):
         self.out = None
+        self.col = None
         pass
     def fit(self,x,y):
         return self
@@ -859,7 +889,20 @@ class dummy:
         return x
     def predict(self,x):
         self.out = x
+        self.col = x.columns
         return x
+class dummy_scale:
+    def __init__(self):
+        self.out = None
+        pass
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        self.out = scale(x)
+        return self.out
+    def predict(self,x):
+        self.out = scale(x)
+        return self.out
 
 class drop_unnecessary:
     def __init__(self):

@@ -65,11 +65,15 @@ class district_encoder:
     def transform(self,x):
         temp = x["district"].values
         buf = [0 for i in range(len(temp))]
+        buf2 = [0 for i in range(len(temp))]
         hoge = x.copy()
         for i in range(len(temp)):
             if temp[i] in self.dist_label:
                 buf[i] = self.dist_label[temp[i]]
+            if temp[i] == "港区":
+                buf2[i] = 1
         hoge = hoge.assign(mf_dist=buf)
+        # hoge = hoge.assign(is_minato=buf2)
         
         buf = [0 for i in range(len(temp))]
         temp = x["city"].values
@@ -123,7 +127,8 @@ class access_extractor:
         return self
     def transform(self,x):
         train,oth_train,oth_walk,avgwalk = train_and_walk_(x)
-        hoge = hoge = x.drop("アクセス",axis = 1)
+        # hoge = hoge = x.drop("アクセス",axis = 1)
+        hoge = x.copy()
         hoge = hoge.assign(train=train)
         hoge = hoge.assign(train2=oth_train[0])
         hoge = hoge.assign(train3=oth_train[1])
