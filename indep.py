@@ -934,6 +934,56 @@ class drop_for_linear:
                 to_drop.append(col)
         return x.drop(to_drop,axis=1)
 
+class feature_selec:
+    def __init__(self):
+        self.to_drop = ['fac_nmf0', 'mf_year', 'tika1',
+         'apr', 'tr_wa_nmf23', 'moyo_p_min', 'dist_main_st0',
+          'tr_wa_nmf31', 'ido', 'tr_wa_nmf38', 'keido', 'kit3',
+           'dist_middle_high_center0', 'envv1', 'tr_wa_nmf3',
+            'tr_wa_nmf21', 'tr_wa_nmf5', 'lda0', 'bath4',
+             'dist_middle_high_center3', 'dist_middle_high_center4',
+              'tr_wa_nmf1', 'dist_main_st5', 'fac_nmf19', 'apr_all',
+         'fac_nmf3', 'train_freq', 'moyori', 'mf_angle', 'tr_wa_nmf22',
+         'tr_wa_nmf4', 'bath5', 'kit14', 'tr_wa_nmf12', 'dist_middle_center3',
+        'tr_wa_nmf7', 'dist_main_st4', 'envv5', 'lda2', 'bath3', 'tr_wa_nmf18',
+         'dist_middle_high_center8', 'field_height', 'walk2', 'tr_wa_nmf13',
+          'tr_wa_nmf26', 'tr_wa_nmf35', 'fac_nmf4', 'tr_wa_nmf0', 'tr_wa_nmf25',
+           'tr_wa_nmf27', 'tr_wa_nmf39', 'lda1', 'fac_nmf6', 'fac_nmf8', 'bath8',
+            'tr_wa_nmf17', 'tr_wa_nmf33', 'fac_nmf9', 'mf_city', 'tr_wa_nmf20',
+            'fac_nmf15', 'walk_p_max', 'tr_wa_nmf37', 'dist_middle_center6',
+            'tr_wa_nmf32', 'mf_dist', 'tr_wa_nmf24', 'dist_main_st3', 'fac_nmf16',
+        'tr_wa_nmf10', 'envv8', 'envv10', 'envv3', 'tr_wa_nmf14', 'fac_nmf12',
+        'fac_nmf10', 'tr_wa_nmf8', 'tr_wa_nmf19', 'avgwalk', 'tr_wa_nmf6',
+        'fac_nmf17', 'dist_middle_center1', 'tr_wa_nmf15', 'walk3',
+        'tr_wa_nmf29', 'info2', 'fac_nmf18', 'envv6', 'bath0', 'info3',
+        'info6', 'tr_wa_nmf16', 'walk_p_min', 'tr_wa_nmf28', 'info5',
+        'kit11', 'info_sum', 'ang_p_max', 'walk_p_mean', 'tr_wa_nmf34',
+         'fac_nmf14', 'tr_wa_nmf2', 'tr_wa_nmf36', 'walk_p_medi', 'tr_wa_nmf11',
+        'envv14', 'envv13', 'lda3', 'tr_wa_nmf30', 'envv2', 'envv12', 'kit12',
+         'envv0', 'envv4', 'bath1', 'ang_p_min', 'fac_nmf5', 'ang_p_mean',
+        'envv9', 'envv7', 'info0', 'kit0', 'kit16', 'info1', 'kit7', 'mf_k', 
+        'kit5', 'kit10', 'kit8', 'ang_p_medi', 'kit13', 'kit6', 'info4', 'has_under',
+         'moyo_mm', 'bath7', 'str_p_min', 'walk_mm', 'envv11'] # 30
+
+
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        return x.drop(self.to_drop,axis=1)
+
+class lin_selec:
+    def __init__(self):
+        self.to_drop =[
+            'train_walk_11', 'train_walk_18', 'info_sum', 'fac29', 'fac_sum',
+             'kit1', 'kit2', 'kit4', 'kit9', 'kit15', 'dist_p_max', 'dist_p_min',
+              'dist_mm', 'moyo_mm', 'ang_p_mean', 'ang_p_min', 'str_p_mean',
+               'str_p_medi', 'str_p_min', 'dist_oh0', 'structure_oh4', 'angle_oh1',
+                'angle_oh2', 'angle_oh6']
+    def fit(self,x,y):
+        return self
+    def transform(self,x):
+        return x.drop(self.to_drop,axis=1)
+
 class PCA_all:
     def __init__(self):
         self.pca = PCA(n_components=20)

@@ -64,6 +64,7 @@ class my_preprocess:
             ("mean_moyori",add_moyori_walk_price()),
             ("angle_stat",add_mean_angle_price()),
 
+
             ("lda",lda()),
 
             ("drop_unnecessary",drop_unnecessary()),
@@ -71,6 +72,8 @@ class my_preprocess:
 
             ("NMF_train_walk",NMF_train_walk(seed)),
             ("NMF_fac",NMF_fac(seed)),
+            
+            ("FS",feature_selec()),
             
 ]
 
@@ -115,6 +118,8 @@ class my_linear:
             ("dist_oh",district_onehot()),
             ("st_onehot",structure_onehot()),
             ("dir_oh",direction_onehot()),
+
+            ("FS",lin_selec()),
         ]
 
 
@@ -142,9 +147,8 @@ class linear_model:
         rpstep = rp.steps
         rich_step_xgb = [
             ("pre",Pipeline(steps=rpstep)),
-            # ("xgb",Ridge(max_iter=3000,alpha=0.005))
             ("dummy",dummy_scale()),
-            ("svr",SVR(C=3.0,epsilon=0.1))
+            ("lasso",Lasso(max_iter=10000))
         ]
         self.model = Pipeline(steps=rich_step_xgb)
     def fit(self,x,y):
@@ -261,7 +265,7 @@ class classify_model:
         ]
 
     def fit(self,x,y):
-        kf = KFold(n_splits=10,shuffle=False)
+        kf = KFold(n_splits=3,shuffle=False)
         self.tree_preprocess.fit(x,y)
         buf = []
         for train_index, test_index in kf.split(x):
@@ -357,10 +361,6 @@ class stacking_model:
             ("pre",Pipeline(steps=lp)),
             ("dummy",dummy())
         ])
-        self.adval_preprocess = Pipeline(steps=[
-            ("pre",Pipeline(steps=lp)),
-            ("dummy",dummy())
-        ])
         self.tree_submodel = [
             xgb.XGBRegressor(random_state=seed,eta = 0.2,max_depth=9,min_child_weight=1,subsample=1.0),
             # CatBoostRegressor(random_state=seed,logging_level="Silent"),
@@ -373,12 +373,12 @@ class stacking_model:
             RandomForestRegressor(random_state=seed),
             lgbm.LGBMRegressor(random_state=seed,learning_rate=0.2,min_child_weight=1,max_depth=9,n_estimators=500)
         ]
-        self.poor_submodel = [
-            # xgb.XGBRegressor(random_state=seed,eta = 0.2,max_depth=9,min_child_weight=1,subsample=1.0),
-            # CatBoostRegressor(random_state=seed,logging_level="Silent"),
-            # RandomForestRegressor(random_state=seed),
-            # lgbm.LGBMRegressor(random_state=seed,learning_rate=0.2,min_child_weight=1,max_depth=9,n_estimators=500)
-        ]
+        # self.poor_submodel = [
+        #     xgb.XGBRegressor(random_state=seed,eta = 0.2,max_depth=9,min_child_weight=1,subsample=1.0),
+        #     CatBoostRegressor(random_state=seed,logging_level="Silent"),
+        #     RandomForestRegressor(random_state=seed),
+        #     lgbm.LGBMRegressor(random_state=seed,learning_rate=0.2,min_child_weight=1,max_depth=9,n_estimators=500)
+        # ]
         self.area_pre_price_submodel = [
             # xgb.XGBRegressor(random_state=seed,eta = 0.2,max_depth=9,min_child_weight=1,subsample=1.0),
             # CatBoostRegressor(random_state=seed,logging_level="Silent"),
@@ -387,8 +387,8 @@ class stacking_model:
         ]
 
         self.linear_submodel = [
-            # Ridge(random_state=seed),16
-            Lasso(random_state=seed),
+            # Ridge(random_state=seed,max_iter=50000),
+            Lasso(random_state=seed,max_iter=50000),
         ]
 
         self.knn_submodels = [
@@ -396,16 +396,16 @@ class stacking_model:
             # KNeighborsRegressor(n_neighbors=10,weights="distance"),
             KNeighborsRegressor(n_neighbors=5,weights="distance"),
             # KNeighborsRegressor(n_neighbors=3),
-            # KNeighborsRegressor(n_neighbors=10),22
+            # KNeighborsRegressor(n_neighbors=10),
         ]
 
-        # self.knn_app = [
-        #     KNeighborsRegressor(n_neighbors=30,weights="distance"),
-        #     KNeighborsRegressor(n_neighbors=10,weights="distance"),
-        #     KNeighborsRegressor(n_neighbors=5,weights="distance"),
-        #     KNeighborsRegressor(n_neighbors=3),
-        #     KNeighborsRegressor(n_neighbors=10),
-        # ]
+        self.knn_app = [
+            # KNeighborsRegressor(n_neighbors=30,weights="distance"),
+            # KNeighborsRegressor(n_neighbors=10,weights="distance"),
+            # KNeighborsRegressor(n_neighbors=5,weights="distance"),
+            # KNeighborsRegressor(n_neighbors=3),
+            # KNeighborsRegressor(n_neighbors=10),
+        ]
 
         self.nn_submodel = [
             # make_model(100,3),
@@ -429,10 +429,10 @@ class stacking_model:
             lgbm.LGBMRegressor(random_state=self.seed,learning_rate=0.2,min_child_weight=1,max_depth=9,n_estimators=500)
         ]
         # self.poor_submodel = [
-        #     # xgb.XGBRegressor(random_state=self.seed,eta = 0.2,max_depth=9,min_child_weight=1,subsample=1.0),
-        #     # CatBoostRegressor(random_state=self.seed,logging_level="Silent"),
-        #     # RandomForestRegressor(random_state=self.seed),
-        #     # lgbm.LGBMRegressor(random_state=self.seed,learning_rate=0.2,min_child_weight=1,max_depth=9,n_estimators=500)
+        #     xgb.XGBRegressor(random_state=self.seed,eta = 0.2,max_depth=9,min_child_weight=1,subsample=1.0),
+        #     CatBoostRegressor(random_state=self.seed,logging_level="Silent"),
+        #     RandomForestRegressor(random_state=self.seed),
+        #     lgbm.LGBMRegressor(random_state=self.seed,learning_rate=0.2,min_child_weight=1,max_depth=9,n_estimators=500)
         # ]
         self.area_pre_price_submodel = [
             # xgb.XGBRegressor(random_state=self.seed,eta = 0.2,max_depth=9,min_child_weight=1,subsample=1.0),
@@ -441,8 +441,8 @@ class stacking_model:
             # lgbm.LGBMRegressor(random_state=self.seed,learning_rate=0.2,min_child_weight=1,max_depth=9,n_estimators=500)
         ]
         self.linear_submodel = [
-            # Ridge(random_state=self.seed),
-            Lasso(random_state=self.seed),
+            # Ridge(random_state=self.seed,max_iter=50000),
+            Lasso(random_state=self.seed,max_iter=50000),
         ]
         self.knn_submodels = [
             # KNeighborsRegressor(n_neighbors=30,weights="distance"),
@@ -466,13 +466,17 @@ class stacking_model:
         ]
 
     def fit(self,x,y):
-        kf = KFold(n_splits=10,shuffle=False)
+        kf = KFold(n_splits=3,shuffle=False)
         buf = []
         self.tree_preprocess.fit(x,y)
         self.linear_preprocess.fit(x,y)
         print("preprocess_fit")
         print(datetime.datetime.now())
+        debug_count = 0
         for train_index, test_index in kf.split(x):
+            print("###########################################")
+            print("now: " + str(debug_count) + " loop")
+            print("###########################################")
             x_train, x_test = x.iloc[train_index], x.iloc[test_index]
             y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
@@ -501,19 +505,19 @@ class stacking_model:
             for model in self.tree_submodel:
                 model.fit(tx,y_train)
             for model in self.linear_submodel:
-                model.fit(lx,y_train)
+                model.fit(sc_lx,y_train)
             for model in self.rich_submodel:
                 model.fit(rich_x,rich_y)
-            # for model in self.poor_submodel:
-            #     model.fit(poor_x,poor_y)
+            for model in self.poor_submodel:
+                model.fit(poor_x,poor_y)
             for model in self.area_pre_price_submodel:
                 model.fit(tx,app_y)
             print("trees_fit")
             print(datetime.datetime.now())
             for model in self.knn_submodels:
                 model.fit(knn_x,y_train)
-            # for model in self.knn_app:
-            #     model.fit(knn_x,app_y)
+            for model in self.knn_app:
+                model.fit(knn_x,app_y)
             print("knn_fit")
             print(datetime.datetime.now())
             for model in self.nn_submodel:
@@ -532,14 +536,14 @@ class stacking_model:
                 pred = model.predict(tx).tolist()
                 temp.append(pred)
             for model in self.linear_submodel:
-                pred = model.predict(lx).tolist()
+                pred = model.predict(sc_lx).tolist()
                 temp.append(pred)
             for model in self.rich_submodel:
                 pred = model.predict(tx).tolist()
                 temp.append(pred)
-            # for model in self.poor_submodel:
-            #     pred = model.predict(tx).tolist()
-            #     temp.append(pred)
+            for model in self.poor_submodel:
+                pred = model.predict(tx).tolist()
+                temp.append(pred)
             for model in self.area_pre_price_submodel:
                 pred = model.predict(tx)
                 pred = pred*tx["mf_areasize"].values
@@ -549,10 +553,10 @@ class stacking_model:
             for model in self.knn_submodels:
                 pred = model.predict(knn_x).tolist()
                 temp.append(pred)
-            # for model in self.knn_app:
-            #     pred = model.predict(knn_x).tolist()
-            #     pred = pred*tx["mf_areasize"].values
-            #     temp.append(pred)
+            for model in self.knn_app:
+                pred = model.predict(knn_x).tolist()
+                pred = pred*tx["mf_areasize"].values
+                temp.append(pred)
             print("knn_pred")
             print(datetime.datetime.now())
             for model in self.nn_submodel:
@@ -597,17 +601,17 @@ class stacking_model:
         for model in self.tree_submodel:
             model.fit(tx,y)
         for model in self.linear_submodel:
-            model.fit(lx,y)
+            model.fit(sc_lx,y)
         for model in self.rich_submodel:
             model.fit(rich_x,rich_y)
-        # for model in self.poor_submodel:
-        #     model.fit(poor_x,poor_y)
+        for model in self.poor_submodel:
+            model.fit(poor_x,poor_y)
         for model in self.area_pre_price_submodel:
             model.fit(tx,app_y)
         for model in self.knn_submodels:
             model.fit(knn_x,y)
-        # for model in self.knn_app:
-        #     model.fit(knn_x,app_y)
+        for model in self.knn_app:
+            model.fit(knn_x,app_y)
         for model in self.nn_submodel:
             model.fit(sc_lx,y.values,epochs=150, batch_size=32,verbose=0)
         print("fit end")
@@ -626,14 +630,14 @@ class stacking_model:
             pred = model.predict(tx).tolist()
             temp.append(pred)
         for model in self.linear_submodel:
-            pred = model.predict(lx).tolist()
+            pred = model.predict(sc_lx).tolist()
             temp.append(pred)
         for model in self.rich_submodel:
             pred = model.predict(tx).tolist()
             temp.append(pred)
-        # for model in self.poor_submodel:
-        #     pred = model.predict(tx).tolist()
-        #     temp.append(pred)
+        for model in self.poor_submodel:
+            pred = model.predict(tx).tolist()
+            temp.append(pred)
         for model in self.area_pre_price_submodel:
             pred = model.predict(tx)
             pred = pred*tx["mf_areasize"].values
@@ -641,10 +645,10 @@ class stacking_model:
         for model in self.knn_submodels:
             pred = model.predict(knn_x).tolist()
             temp.append(pred)
-        # for model in self.knn_app:
-        #     pred = model.predict(knn_x).tolist()
-        #     pred = pred*tx["mf_areasize"].values
-        #     temp.append(pred)
+        for model in self.knn_app:
+            pred = model.predict(knn_x).tolist()
+            pred = pred*tx["mf_areasize"].values
+            temp.append(pred)
         for model in self.nn_submodel:
             pred = model.predict(sc_lx)
             pred = pred.flatten().tolist()
